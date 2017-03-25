@@ -153,7 +153,7 @@
         (println total))
 
 (defn keysize-distances
-  "Accepts a txt file of b64-encoded data, decodes it to binary, and for range of keysizes, gets hamming distance between two keysize blocks in the data.  Returns a collection of maps -- {:k keysize :dist hamming-distance}"
+  "Accepts a txt file of b64-encoded data, decodes it to binary, and for range of keysizes, gets hamming distance between two keysize blocks in the data.  Returns a collection of maps sorted by :dist, least to greatest -- {:k keysize :dist hamming-distance}"
   [b64-data]
   (let [bin (->> b64-data
                  (slurp-from-file-split)
@@ -161,25 +161,11 @@
                  (decode-b64)
                  (map byte)
                  (make-bin))
-        keysize (range 2 41)]
-    (for [k keysize]
-      (let [par (partition k bin)
-            block1 (first par)
-            block2 (second par)
-            dist (hamming-distance block1 block2)]
-        {:k k :dist (float (/ dist k))}))))
-
-(defn smallest-distance-keysize
-  "Reduces a collection of maps {:k keysize :dist hamming-distance} by smallest hamming distance."
-  [coll-of-maps]
-  
-  (let [find-smallest (fn [prev this]
-                        (let [prev-dist (:dist prev)
-                              this-dist (:dist this)
-                              prev-k (:k prev)
-                              this-k (:k this)]
-                          (if (< this-dist prev-dist)
-                            {:k this-k :dist this-dist}
-                            {:k prev-k :dist prev-dist})))]
-    
-    (reduce find-smallest coll-of-maps)))
+        keysize (range 2 41)
+        distances (for [k keysize]
+                    (let [par (partition k bin)
+                          block1 (first par)
+                          block2 (second par)
+                          dist (hamming-distance block1 block2)]
+                      {:k k :dist (float (/ dist k))}))]
+    (sort-by :dist distances)))
