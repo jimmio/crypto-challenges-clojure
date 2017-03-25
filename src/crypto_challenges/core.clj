@@ -114,6 +114,8 @@
   (let [slurped (slurp-from-file-split data)]
     (last (sort-by last (map score slurped)))))
 
+
+;;;; IMPLEMENT REPEATING-KEY XOR ;;;;
 (defn repeating-key-xor
   "Accepts a string and a key, then XOR's the key over the string"
   [s k]
@@ -126,6 +128,9 @@
         kbytes (get-bytes kext)]
     (encode-hex (map bit-xor sbytes kbytes))))
 
+
+
+;;;; BREAK REPEATING-KEY XOR ;;;;
 (def set-1-challenge-6-data
   (clojure.java.io/file "resources/6.txt"))
 
@@ -147,25 +152,34 @@
                            xord)]
                 (sum-reduce r))]
     total))
-    #_(do (println "c1" c1)
-        (println "c2" c2)
-        (println "xord" xord)
-        (println total))
+
+(defn b64-txt-to-bin
+  [b64-data]
+  "Accepts a txt file of base-64-encoded data and returns its translation into binary."
+  (->> b64-data
+       (slurp-from-file-split)
+       (st/join)
+       (decode-b64)
+       (map byte)
+       (make-bin)))
 
 (defn keysize-distances
-  "Accepts a txt file of b64-encoded data, decodes it to binary, and for range of keysizes, gets hamming distance between two keysize blocks in the data.  Returns a collection of maps sorted by :dist, least to greatest -- {:k keysize :dist hamming-distance}"
-  [b64-data]
-  (let [bin (->> b64-data
-                 (slurp-from-file-split)
-                 (st/join)
-                 (decode-b64)
-                 (map byte)
-                 (make-bin))
-        keysize (range 2 41)
+  "Accepts binary data, and for range of keysizes, gets hamming distance between two keysize blocks in the data.  Returns a collection of maps sorted by :dist, least to greatest -- {:k keysize :dist hamming-distance}"
+  [bin-data]
+  (let [keysize (range 2 41)
         distances (for [k keysize]
-                    (let [par (partition k bin)
+                    (let [par (partition k bin-data)
                           block1 (first par)
                           block2 (second par)
                           dist (hamming-distance block1 block2)]
                       {:k k :dist (float (/ dist k))}))]
     (sort-by :dist distances)))
+
+(defn partition-and-xor
+  [bin-data kd-maps]
+  "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... then solves each transposed block as if it were a single-char xor cipher."
+  (let [keysize (:k (first kd-maps))
+        partitioned (vec (partition keysize bin-data))
+        transposed (for [n (range keysize)]
+                     (map (fn [block] (nth block n)) partitioned))]
+    transposed))
