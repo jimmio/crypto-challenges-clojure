@@ -183,3 +183,13 @@
         transposed (for [n (range keysize)]
                      (map (fn [block] (nth block n)) partitioned))]
     transposed))
+
+(defn single-char-xor-from-bin
+  "Accepts a block of binary data and returns lists of its ASCII-range single-byte XOR results"
+  [bin-data]
+  (let [asc (range 0 256)
+        length (count bin-data)
+        asc-ext (for [byte asc] (repeat length byte))
+        xord (for [a asc-ext]
+               (map bit-xor bin-data a))]
+    xord))
