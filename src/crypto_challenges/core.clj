@@ -222,21 +222,27 @@
 
 (defn single-char-xor-from-bytes
   "Accepts a block of bytes and returns lists of its ASCII-range single-byte XOR results"
-  [byte-block]
+  [map']
   (let [asc (range 0 256)
-        length (count byte-block)
+        length (count map')
         asc-ext (for [byte asc] (repeat length byte))
         xord (for [a asc-ext]
-               (map bit-xor byte-block a))]
-    (for [x xord] (st/join (map char x)))))
+               (let [{:keys [block-index block-bytes] :as m'} map']
+                 {:block-index block-index
+                  :block-bytes block-bytes
+                  :block-bytes-xord (map bit-xor block-bytes a)
+                  :char-xord-against a}))]
+    xord
+    #_(for [x xord] (st/join (map char x)))))
 
 (defn partition-and-xor
-  [bin-data kd-maps]
+  [bytes kd-maps]
   "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... then computes each transposed block as if it were a single-char xor cipher."
   (let [keysize (:k (first kd-maps))
-        partitioned (vec (partition keysize bin-data))
+        partitioned (vec (partition keysize bytes))
         transposed (for [n (range keysize)]
-                     (map (fn [block] (nth block n)) partitioned))
-        xord (for [block transposed] (single-char-xor-from-bytes block))
+                     {:block-index n
+                      :block-bytes (map (fn [block] (nth block n)) partitioned)})
+        xord (for [map' transposed] (single-char-xor-from-bytes map'))
         scored (for [string xord] (score' string))]
-    scored))
+    xord))
