@@ -101,6 +101,42 @@
 
     (sort-by last (map vector strlist reduced-again))))
 
+(defn score'
+  "Accepts collection of strings and returns character frequency analysis scores."
+  [strcoll]
+  (let [scorecard {"e" 100 "t" 96 "a" 92 "o" 88 "i" 84 "n" 80
+                   "s" 76  "h" 72 "r" 68 "d" 64 "l" 60 "u" 56
+                   "c" 52  "m" 48 "f" 44 "g" 40 "y" 36 "p" 32
+                   "w" 28  "b" 24 "v" 20 "k" 16 "x" 12 "j" 8
+                   "q" 4   "z" 2
+
+                   "E" 98 "T" 94 "A" 90 "O" 86 "I" 82 "N" 78
+                   "S" 74 "H" 70 "R" 66 "D" 62 "L" 58 "U" 54
+                   "C" 50 "M" 46 "F" 42 "G" 38 "Y" 34 "P" 30
+                   "W" 26 "B" 22 "V" 18 "K" 14 "X" 10 "J" 6
+                   "Q" 2  "Z" 1 }
+        
+        selections (map (fn [onestr]
+                          (let [charkeys (keys scorecard)]
+                            (for [k charkeys]
+                              (re-seq (re-pattern k) onestr))))
+                        strcoll)
+        
+        nil-filtered (map (fn [l] (filter (fn [i] (not= nil i)) l)) selections)
+        
+        scores (map
+                (fn [l] (for [i l] (for [z i] (scorecard z))))
+                nil-filtered)
+
+        scores-reduced (map (fn [l]
+                              (for [thing l]
+                                (sum-reduce thing)))
+                            scores)
+        reduced-again (for [thing scores-reduced]
+                        (reduce (fn [p n] (+ p n)) 0 thing))]
+
+    (sort-by last (map vector strcoll reduced-again))))
+
 (def set-1-challenge-4-data
   (clojure.java.io/file "resources/4.txt"))
 
@@ -163,6 +199,15 @@
        (map byte)
        (make-bin)))
 
+(defn b64-txt-to-bytes
+  [b64-data]
+  "Accepts a txt file of base-64-encoded data and returns its translation into binary."
+  (->> b64-data
+       (slurp-from-file-split)
+       (st/join)
+       (decode-b64)
+       (map byte)))
+
 (defn keysize-distances
   "Accepts binary data, and for range of keysizes, gets hamming distance between two keysize blocks in the data.  Returns a collection of maps sorted by :dist, least to greatest -- {:k keysize :dist hamming-distance}"
   [bin-data]
@@ -175,21 +220,23 @@
                       {:k k :dist (float (/ dist k))}))]
     (sort-by :dist distances)))
 
+(defn single-char-xor-from-bytes
+  "Accepts a block of bytes and returns lists of its ASCII-range single-byte XOR results"
+  [byte-block]
+  (let [asc (range 0 256)
+        length (count byte-block)
+        asc-ext (for [byte asc] (repeat length byte))
+        xord (for [a asc-ext]
+               (map bit-xor byte-block a))]
+    (for [x xord] (st/join (map char x)))))
+
 (defn partition-and-xor
   [bin-data kd-maps]
-  "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... then solves each transposed block as if it were a single-char xor cipher."
+  "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... then computes each transposed block as if it were a single-char xor cipher."
   (let [keysize (:k (first kd-maps))
         partitioned (vec (partition keysize bin-data))
         transposed (for [n (range keysize)]
-                     (map (fn [block] (nth block n)) partitioned))]
-    transposed))
-
-(defn single-char-xor-from-bin
-  "Accepts a block of binary data and returns lists of its ASCII-range single-byte XOR results"
-  [bin-data]
-  (let [asc (range 0 256)
-        length (count bin-data)
-        asc-ext (for [byte asc] (repeat length byte))
-        xord (for [a asc-ext]
-               (map bit-xor bin-data a))]
-    xord))
+                     (map (fn [block] (nth block n)) partitioned))
+        xord (for [block transposed] (single-char-xor-from-bytes block))
+        scored (for [string xord] (score' string))]
+    scored))
