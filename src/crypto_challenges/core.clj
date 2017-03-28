@@ -101,9 +101,9 @@
 
     (sort-by last (map vector strlist reduced-again))))
 
-(defn score'
-  "Accepts collection of strings and returns character frequency analysis scores."
-  [strcoll]
+(defn score-from-bytes
+  "Accepts collection of decimal byte values and returns character frequency analysis scores."
+  [byte-coll]
   (let [scorecard {"e" 100 "t" 96 "a" 92 "o" 88 "i" 84 "n" 80
                    "s" 76  "h" 72 "r" 68 "d" 64 "l" 60 "u" 56
                    "c" 52  "m" 48 "f" 44 "g" 40 "y" 36 "p" 32
@@ -115,12 +115,17 @@
                    "C" 50 "M" 46 "F" 42 "G" 38 "Y" 34 "P" 30
                    "W" 26 "B" 22 "V" 18 "K" 14 "X" 10 "J" 6
                    "Q" 2  "Z" 1 }
+
+        bytes-turned-ascii (st/join (map char byte-coll))
         
-        selections (map (fn [onestr]
+        selections (map (fn [char]
                           (let [charkeys (keys scorecard)]
                             (for [k charkeys]
-                              (re-seq (re-pattern k) onestr))))
-                        strcoll)
+                              (re-seq (re-pattern k) char))))
+                        bytes-turned-ascii)
+
+        _ (println "BYTES-TURNED-ASCII" bytes-turned-ascii)
+        __ (println "SELECTIONS" selections)
         
         nil-filtered (map (fn [l] (filter (fn [i] (not= nil i)) l)) selections)
         
@@ -135,7 +140,7 @@
         reduced-again (for [thing scores-reduced]
                         (reduce (fn [p n] (+ p n)) 0 thing))]
 
-    (sort-by last (map vector strcoll reduced-again))))
+    (sort-by last (map vector byte-coll reduced-again))))
 
 (def set-1-challenge-4-data
   (clojure.java.io/file "resources/4.txt"))
@@ -224,14 +229,12 @@
   "Accepts a block of bytes and returns lists of its ASCII-range single-byte XOR results"
   [map']
   (let [asc (range 0 256)
-        length (count map')
+        length (count (:block-bytes map'))
         asc-ext (for [byte asc] (repeat length byte))
         xord (for [a asc-ext]
                (let [{:keys [block-index block-bytes] :as m'} map']
-                 {:block-index block-index
-                  :block-bytes block-bytes
-                  :block-bytes-xord (map bit-xor block-bytes a)
-                  :char-xord-against a}))]
+                 (assoc map' :block-bytes-xord (map bit-xor block-bytes a)
+                             :char-xord-against (take 1 a))))]
     xord
     #_(for [x xord] (st/join (map char x)))))
 
@@ -244,5 +247,6 @@
                      {:block-index n
                       :block-bytes (map (fn [block] (nth block n)) partitioned)})
         xord (for [map' transposed] (single-char-xor-from-bytes map'))
-        scored (for [string xord] (score' string))]
-    xord))
+        scored (for [{:keys [block-bytes-xord] :as mapp} xord]
+                 (assoc mapp :score (score' block-bytes-xord)))]
+    scored))
