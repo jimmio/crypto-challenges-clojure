@@ -125,11 +125,17 @@
         _ (println "BYTES-TURNED-ASCII" (type bytes-turned-ascii) bytes-turned-ascii)
         __ (println "SELECTIONS" selections)
         
-        nil-filtered (map (fn [l] (filter (fn [i] (not= nil i)) l)) selections)
+        nil-filtered (filter #(not (nil? %)) selections)
+
+        ___ (println "NIL-FILTERED" nil-filtered)
         
-        scores (map
-                (fn [l] (for [i l] (for [z i] (scorecard z))))
-                nil-filtered)
+        scores (for [seq nil-filtered
+                     _ (println seq)]
+                 (map #(% scorecard) seq))
+                
+
+        ____ (println "SCORES" scores)
+
 
         scores-reduced (map (fn [l]
                               (for [thing l]
