@@ -232,15 +232,15 @@
   "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... then computes each transposed block as if it were a single-char xor cipher."
   (let [keysize (:k (first kd-maps))
         partitioned (vec (partition keysize bytes))
+        
         transposed (for [n (range keysize)]
                      {:block-index n
                       :block-bytes (map (fn [block] (nth block n)) partitioned)})
         xord (for [map' transposed] (single-char-xor-from-bytes map'))
-        _ (println "XORD" xord)
         scored (for [{:keys [block-bytes-xord] :as mapp} xord]
                  (assoc mapp :score (score-from-bytes block-bytes-xord)))]
-    scored))
+    (println (take 1 scored))))
 
-(def bytes-from-file (b64-txt-to-bytes set-1-challenge-6-data))
-(def octets-from-file (b64-txt-to-bin set-1-challenge-6-data))
-(def together (partition-and-xor bytes-from-file (keysize-distances octets-from-file)))
+#_(def bytes-from-file (b64-txt-to-bytes set-1-challenge-6-data))
+#_(def octets-from-file (b64-txt-to-bin set-1-challenge-6-data))
+#_(def together (partition-and-xor bytes-from-file (keysize-distances octets-from-file)))
