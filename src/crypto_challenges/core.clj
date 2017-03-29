@@ -118,13 +118,11 @@
 
         bytes-turned-ascii (st/join (map char byte-coll))
         
-        selections (map (fn [char]
-                          (let [charkeys (keys scorecard)]
-                            (for [k charkeys]
-                              (re-seq (re-pattern k) char))))
-                        bytes-turned-ascii)
+        selections (let [charkeys (keys scorecard)]
+                     (for [k charkeys]
+                       (re-seq (re-pattern k) bytes-turned-ascii)))
 
-        _ (println "BYTES-TURNED-ASCII" bytes-turned-ascii)
+        _ (println "BYTES-TURNED-ASCII" (type bytes-turned-ascii) bytes-turned-ascii)
         __ (println "SELECTIONS" selections)
         
         nil-filtered (map (fn [l] (filter (fn [i] (not= nil i)) l)) selections)
@@ -248,5 +246,9 @@
                       :block-bytes (map (fn [block] (nth block n)) partitioned)})
         xord (for [map' transposed] (single-char-xor-from-bytes map'))
         scored (for [{:keys [block-bytes-xord] :as mapp} xord]
-                 (assoc mapp :score (score' block-bytes-xord)))]
+                 (assoc mapp :score (score-from-bytes block-bytes-xord)))]
     scored))
+
+(def bytes-from-file (b64-txt-to-bytes set-1-challenge-6-data))
+(def octets-from-file (b64-txt-to-bin set-1-challenge-6-data))
+(def together (partition-and-xor bytes-from-file (keysize-distances octets-from-file)))
