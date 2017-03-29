@@ -121,30 +121,15 @@
         selections (let [charkeys (keys scorecard)]
                      (for [k charkeys]
                        (re-seq (re-pattern k) bytes-turned-ascii)))
-
-        _ (println "BYTES-TURNED-ASCII" (type bytes-turned-ascii) bytes-turned-ascii)
-        __ (println "SELECTIONS" selections)
         
         nil-filtered (filter #(not (nil? %)) selections)
-
-        ___ (println "NIL-FILTERED" nil-filtered)
         
-        scores (for [seq nil-filtered
-                     _ (println seq)]
-                 (map #(% scorecard) seq))
-                
+        scores (for [seq nil-filtered]
+                 (map #(scorecard %) seq))
 
-        ____ (println "SCORES" scores)
+        score (sum-reduce (for [seq scores] (sum-reduce seq)))]
 
-
-        scores-reduced (map (fn [l]
-                              (for [thing l]
-                                (sum-reduce thing)))
-                            scores)
-        reduced-again (for [thing scores-reduced]
-                        (reduce (fn [p n] (+ p n)) 0 thing))]
-
-    (sort-by last (map vector byte-coll reduced-again))))
+    score))
 
 (def set-1-challenge-4-data
   (clojure.java.io/file "resources/4.txt"))
@@ -251,6 +236,7 @@
                      {:block-index n
                       :block-bytes (map (fn [block] (nth block n)) partitioned)})
         xord (for [map' transposed] (single-char-xor-from-bytes map'))
+        _ (println "XORD" xord)
         scored (for [{:keys [block-bytes-xord] :as mapp} xord]
                  (assoc mapp :score (score-from-bytes block-bytes-xord)))]
     scored))
