@@ -222,8 +222,8 @@
         asc-ext (for [byte asc] (repeat length byte))
         xord (for [a asc-ext]
                (let [{:keys [block-index block-bytes] :as m'} map']
-                 (assoc map' :block-bytes-xord (map bit-xor block-bytes a)
-                             :char-xord-against (take 1 a))))]
+                 (assoc m' :block-bytes-xord (map bit-xor block-bytes a)
+                           :char-xord-against (take 1 a))))]
     xord
     #_(for [x xord] (st/join (map char x)))))
 
@@ -237,10 +237,10 @@
                      {:block-index n
                       :block-bytes (map (fn [block] (nth block n)) partitioned)})
         xord (for [map' transposed] (single-char-xor-from-bytes map'))
-        scored (for [{:keys [block-bytes-xord] :as mapp} xord]
+        scored (for [[{:keys [block-bytes-xord] :as mapp}] xord]
                  (assoc mapp :score (score-from-bytes block-bytes-xord)))]
-    (println (take 1 scored))))
+    scored))
 
-#_(def bytes-from-file (b64-txt-to-bytes set-1-challenge-6-data))
-#_(def octets-from-file (b64-txt-to-bin set-1-challenge-6-data))
-#_(def together (partition-and-xor bytes-from-file (keysize-distances octets-from-file)))
+;; (def bytes-from-file (b64-txt-to-bytes set-1-challenge-6-data))
+;; (def octets-from-file (b64-txt-to-bin set-1-challenge-6-data))
+;; (def together (partition-and-xor bytes-from-file (keysize-distances octets-from-file)))
