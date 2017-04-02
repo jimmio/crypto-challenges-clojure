@@ -234,20 +234,23 @@
   (let [keysize (:k (first kd-maps))
         partitioned (vec (partition keysize bytes))
         
-        transposed (for [n (range keysize)]
+        transposed-scored (for [n (range keysize)]
                      (let [block-bytes (map (fn [block] (nth block n)) partitioned)
                            xord-char-score (single-char-xor-from-bytes block-bytes)
-                           score (nth xord-char-score 3)
                            m {:block-index n
                               :block-bytes block-bytes
-                              :block-bytes-xord xord-char-score}]
+                              :block-bytes-xord (vec xord-char-score)}]
                        m))
-        
-        sorted (for [{:keys [block-bytes-xord] :as m} transposed]
-                 (assoc m :block-bytes-xord (last (sort-by :score block-bytes-xord))))
 
-        transposed-redux (for [m transposed] (assoc m :block-bytes-xord sorted))
+        
+        
+        ;; sorted (for [{:keys [block-bytes-xord] :as m} transposed]
+        ;;          (assoc m :block-bytes-xord (last (sort-by :score block-bytes-xord))))
+
+        ;; transposed-redux (for [m transposed] (assoc m :block-bytes-xord sorted))
 
         ]
 
-    (clojure.pprint/pprint transposed-redux)))
+    (for [m transposed-scored]
+      (let [xord (get m :block-bytes-xord)]
+        (map char (:char (last (sort-by :score xord))))))))
