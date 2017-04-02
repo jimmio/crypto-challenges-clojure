@@ -222,31 +222,32 @@
         asc-ext (for [byte asc] (repeat length byte))]
     (for [a asc-ext]
       (let [xor-result (map bit-xor byte-block a)
-            char (take 1 a)]
-        [xor-result char]))))
+            char (take 1 a)
+            score (score-from-bytes xor-result)]
+        {:xor-result xor-result
+         :char char
+         :score score}))))
 
-#_(defn partition-and-xor
+(defn partition-and-xor
   [bytes kd-maps]
-  "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... then computes each transposed block as if it were a single-char xor cipher."
+  "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... returns a map of "
   (let [keysize (:k (first kd-maps))
         partitioned (vec (partition keysize bytes))
         
         transposed (for [n (range keysize)]
                      (let [block-bytes (map (fn [block] (nth block n)) partitioned)
-                           block-bytes-xord (single-char-xor-from-bytes block-bytes)]
-                       {:block-index n
-                        :block-bytes block-bytes
-                        :block-bytes-xord block-bytes-xord}))
-        xord (for [map' transposed] (single-char-xor-from-bytes map'))
-
-        xord' (for [x xord] (println "HERE'S ONE: " x))
+                           xord-char-score (single-char-xor-from-bytes block-bytes)
+                           score (nth xord-char-score 3)
+                           m {:block-index n
+                              :block-bytes block-bytes
+                              :block-bytes-xord xord-char-score}]
+                       m))
         
-        scored (for [[{:keys [block-bytes-xord] :as mapp}] xord]
-                 (assoc mapp :score (score-from-bytes block-bytes-xord)))
-        scored-sorted (sort-by :block-index scored)]
-    xord'))
+        sorted (for [{:keys [block-bytes-xord] :as m} transposed]
+                 (assoc m :block-bytes-xord (last (sort-by :score block-bytes-xord))))
 
-#_(let [bytes-from-file (b64-txt-to-bytes set-1-challenge-6-data)
-      octets-from-file (b64-txt-to-bin set-1-challenge-6-data)
-      together (partition-and-xor bytes-from-file (keysize-distances octets-from-file))]
-  (println together))
+        transposed-redux (for [m transposed] (assoc m :block-bytes-xord sorted))
+
+        ]
+
+    (clojure.pprint/pprint transposed-redux)))
