@@ -145,19 +145,6 @@
     (last (sort-by last (map score slurped)))))
 
 
-;;;; IMPLEMENT REPEATING-KEY XOR ;;;;
-(defn repeating-key-xor
-  "Accepts a string and a key, then XOR's the key over the string"
-  [s k]
-  (let [slength (.length s)
-        klength (.length k)
-        rem (mod slength klength)
-        keyrem (subs k 0 rem)
-        kext (str (apply str (repeat (/ slength klength) k)) keyrem)
-        sbytes (get-bytes s)
-        kbytes (get-bytes kext)]
-    (encode-hex (map bit-xor sbytes kbytes))))
-
 
 
 ;;;; BREAK REPEATING-KEY XOR ;;;;
@@ -215,8 +202,10 @@
     (sort-by :dist distances)))
 
 (defn single-char-xor-from-bytes
-  "Accepts a block of bytes and returns lists of its ASCII-range single-byte XOR results"
   [byte-block]
+  
+  "Accepts a block of bytes and returns lists of its ASCII-range single-byte XOR results"
+  
   (let [asc (range 0 256)
         length (count byte-block)
         asc-ext (for [byte asc] (repeat length byte))]
@@ -228,29 +217,70 @@
          :char char
          :score score}))))
 
-(defn partition-and-xor
-  [bytes kd-maps]
-  "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... returns a map of "
+(defn partition-transpose-score
+  [kd-maps bytes]
+  
+  "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... returns a map of block-index, block-bytes, block-bytes-xord"
+  
   (let [keysize (:k (first kd-maps))
+        
         partitioned (vec (partition keysize bytes))
-        
+
         transposed-scored (for [n (range keysize)]
-                     (let [block-bytes (map (fn [block] (nth block n)) partitioned)
-                           xord-char-score (single-char-xor-from-bytes block-bytes)
-                           m {:block-index n
-                              :block-bytes block-bytes
-                              :block-bytes-xord (vec xord-char-score)}]
-                       m))
+                            (let [block-bytes (map (fn [block] (nth block n)) partitioned)
+                                  xord-char-score (single-char-xor-from-bytes block-bytes)]
+                              {:block-index n
+                               :block-bytes block-bytes
+                               :block-bytes-xord (vec xord-char-score)}))]
 
-        
-        
-        ;; sorted (for [{:keys [block-bytes-xord] :as m} transposed]
-        ;;          (assoc m :block-bytes-xord (last (sort-by :score block-bytes-xord))))
+    transposed-scored))
 
-        ;; transposed-redux (for [m transposed] (assoc m :block-bytes-xord sorted))
+(defn sort-and-keep-highest-scoring-block
+  [transposed-scored-maps]
+  (for [{:keys [block-bytes-xord] :as m} transposed-scored-maps]
+    (let [highest-scoring-block (->> block-bytes-xord
+                                     (sort-by :score)
+                                     (last))]
+      (assoc m :block-bytes-xord highest-scoring-block))))
 
-        ]
+(defn get-key
+  [maps-with-highest-scoring-blocks]
 
-    (for [m transposed-scored]
-      (let [xord (get m :block-bytes-xord)]
-        (map char (:char (last (sort-by :score xord))))))))
+  (let [k (for [{:keys [block-bytes-xord]} maps-with-highest-scoring-blocks]
+            (:char block-bytes-xord))]
+   (vec k)))
+
+(def keysize-distance-maps (->> set-1-challenge-6-data
+                                (b64-txt-to-bin)
+                                (keysize-distances)))
+
+(def bytez (b64-txt-to-bytes set-1-challenge-6-data))
+
+(def get-dat-key (->> bytez
+                      (partition-transpose-score keysize-distance-maps)
+                      (sort-and-keep-highest-scoring-block)
+                      (get-key)))
+
+(defn xor-key-over-bytes
+  [key byte-coll]
+  (let [blen (count byte-coll)
+        klen (count key)
+        rem (mod blen klen)
+        krem (take rem key)]
+    (println "KREM" krem)))
+
+(def break-it (xor-key-over-bytes get-dat-key bytez))
+
+
+;;;; IMPLEMENT REPEATING-KEY XOR ;;;;
+(defn repeating-key-xor
+  "Accepts a string and a key, then XOR's the key over the string"
+  [s k]
+  (let [slength (.length s)
+        klength (.length k)
+        rem (mod slength klength)
+        keyrem (subs k 0 rem)
+        kext (str (apply str (repeat (/ slength klength) k)) keyrem)
+        sbytes (get-bytes s)
+        kbytes (get-bytes kext)]
+    (encode-hex (map bit-xor sbytes kbytes))))
