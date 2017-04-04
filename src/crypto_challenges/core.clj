@@ -266,8 +266,10 @@
   (let [blen (count byte-coll)
         klen (count key)
         rem (mod blen klen)
-        krem (take rem key)]
-    (println "KREM" krem)))
+        krem (take rem key)
+        kext (repeat (/ blen klen) key)
+        kext' (conj kext krem)]
+    kext'))
 
 (def break-it (xor-key-over-bytes get-dat-key bytez))
 
