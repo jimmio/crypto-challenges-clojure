@@ -248,7 +248,7 @@
 
   (let [k (for [{:keys [block-bytes-xord]} maps-with-highest-scoring-blocks]
             (:char block-bytes-xord))]
-   (map first k)))
+   (flatten k)))
 
 (def keysize-distance-maps (->> set-1-challenge-6-data
                                 (b64-txt-to-bin)
@@ -261,8 +261,8 @@
         rem (mod blen klen)
         krem (take rem key)
         kext (repeat (/ blen klen) key)
-        kext' (conj kext krem)]
-    key))
+        kext' (flatten (conj krem kext))]
+    kext'))
 
 (def bytez (b64-txt-to-bytes set-1-challenge-6-data))
 
