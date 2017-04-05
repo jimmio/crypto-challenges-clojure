@@ -248,18 +248,11 @@
 
   (let [k (for [{:keys [block-bytes-xord]} maps-with-highest-scoring-blocks]
             (:char block-bytes-xord))]
-   (vec k)))
+   (map first k)))
 
 (def keysize-distance-maps (->> set-1-challenge-6-data
                                 (b64-txt-to-bin)
                                 (keysize-distances)))
-
-(def bytez (b64-txt-to-bytes set-1-challenge-6-data))
-
-(def get-dat-key (->> bytez
-                      (partition-transpose-score keysize-distance-maps)
-                      (sort-and-keep-highest-scoring-block)
-                      (get-key)))
 
 (defn xor-key-over-bytes
   [key byte-coll]
@@ -269,7 +262,14 @@
         krem (take rem key)
         kext (repeat (/ blen klen) key)
         kext' (conj kext krem)]
-    kext'))
+    key))
+
+(def bytez (b64-txt-to-bytes set-1-challenge-6-data))
+
+(def get-dat-key (->> bytez
+                      (partition-transpose-score keysize-distance-maps)
+                      (sort-and-keep-highest-scoring-block)
+                      (get-key)))
 
 (def break-it (xor-key-over-bytes get-dat-key bytez))
 
