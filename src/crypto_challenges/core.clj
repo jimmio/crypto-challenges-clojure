@@ -201,16 +201,23 @@
        (decode-b64)
        (map byte)))
 
+(defn average-distances
+  [partitioned-data num-blocks-to-compare]
+  (let [distances (for [n (range num-blocks-to-compare)]
+                    (let [b1 (nth partitioned-data n)
+                          b2 (nth partitioned-data (+ 1 n))]
+                      (hamming-distance b1 b2)))]
+    (float (/ (sum-reduce distances) num-blocks-to-compare))))
+  
+
 (defn keysize-distances
   "Accepts binary data, and for range of keysizes, gets hamming distance between two keysize blocks in the data.  Returns a collection of maps sorted by :dist, least to greatest -- {:k keysize :dist hamming-distance}"
   [bin-data]
   (let [keysize (range 2 41)
         distances (for [k keysize]
                     (let [par (partition k bin-data)
-                          block1 (first par)
-                          block2 (second par)
-                          dist (hamming-distance block1 block2)]
-                      {:k k :dist (float (/ dist k))}))]
+                          avgdist (average-distances par 8)]
+                      {:k k :dist (float (/ avgdist k))}))]
     (sort-by :dist distances)))
 
 (defn single-char-xor-from-bytes
@@ -232,9 +239,9 @@
 (defn partition-transpose-score
   [kd-maps bytes]
   
-  "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... returns a map of block-index, block-bytes, block-bytes-xord"
+  "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... returns a map of block-index, block-bytes, block-bytes-xord.  Sometimes the SECOND item in kd-maps contains the correct keysize."
   
-  (let [keysize (:k (nth kd-maps 18)) ;; 18
+  (let [keysize (:k (second kd-maps))
         
         partitioned (vec (partition keysize bytes))
 
@@ -269,7 +276,6 @@
 (defn xor-key-over-bytes
   [key byte-coll]
   (let [blen (count byte-coll)
-        _ (println (map char key))
         klen (count key)
         rem (mod blen klen)
         krem (take rem key)
