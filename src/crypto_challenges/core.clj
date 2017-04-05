@@ -104,17 +104,29 @@
 (defn score-from-bytes
   "Accepts collection of decimal byte values and returns character frequency analysis scores."
   [byte-coll]
-  (let [scorecard {"e" 100 "t" 96 "a" 92 "o" 88 "i" 84 "n" 80
-                   "s" 76  "h" 72 "r" 68 "d" 64 "l" 60 "u" 56
-                   "c" 52  "m" 48 "f" 44 "g" 40 "y" 36 "p" 32
-                   "w" 28  "b" 24 "v" 20 "k" 16 "x" 12 "j" 8
-                   "q" 4   "z" 2
+  (let [;; scorecard {"e" 100 "t" 96 "a" 92 "o" 88 "i" 84 "n" 80
+        ;;            "s" 76  "h" 72 "r" 68 "d" 64 "l" 60 "u" 56
+        ;;            "c" 52  "m" 48 "f" 44 "g" 40 "y" 36 "p" 32
+        ;;            "w" 28  "b" 24 "v" 20 "k" 16 "x" 12 "j" 8
+        ;;            "q" 4   "z" 2
 
-                   "E" 98 "T" 94 "A" 90 "O" 86 "I" 82 "N" 78
-                   "S" 74 "H" 70 "R" 66 "D" 62 "L" 58 "U" 54
-                   "C" 50 "M" 46 "F" 42 "G" 38 "Y" 34 "P" 30
-                   "W" 26 "B" 22 "V" 18 "K" 14 "X" 10 "J" 6
-                   "Q" 2  "Z" 1 }
+        ;;            "E" 98 "T" 94 "A" 90 "O" 86 "I" 82 "N" 78
+        ;;            "S" 74 "H" 70 "R" 66 "D" 62 "L" 58 "U" 54
+        ;;            "C" 50 "M" 46 "F" 42 "G" 38 "Y" 34 "P" 30
+        ;;            "W" 26 "B" 22 "V" 18 "K" 14 "X" 10 "J" 6
+        ;;            "Q" 2  "Z" 1 }
+
+        scorecard {"e" 0.12702 "t" 0.09056 "a" 0.08167 "o" 0.07507 "i" 0.06966 "n" 0.06749
+                   "s" 0.06327  "h" 0.06094 "r" 0.05987 "d" 0.04253 "l" 0.04025 "u" 0.02758
+                   "c" 0.02782  "m" 0.02406 "f" 0.02228 "g" 0.02015 "y" 0.01974 "p" 0.01929
+                   "w" 0.02360  "b" 0.01492 "v" 0.00978 "k" 0.00772 "x" 0.00150 "j" 0.00153
+                   "q" 0.00095   "z" 0.00074
+
+                   "E" 0.12702 "T" 0.09056 "A" 0.08167 "O" 0.07507 "I" 0.06966 "N" 0.06749
+                   "S" 0.06327 "H" 0.06094 "R" 0.05987 "D" 0.04253 "L" 0.04025 "U" 0.02758
+                   "C" 0.02782 "M" 0.02406 "F" 0.02228 "G" 0.02015 "Y" 0.01974 "P" 0.01929
+                   "W" 0.02360 "B" 0.01492 "V" 0.00978 "K" 0.00772 "X" 0.00150 "J" 0.00153
+                   "Q" 0.00095  "Z" 0.00074 }
 
         bytes-turned-ascii (st/join (map char byte-coll))
         
@@ -222,7 +234,7 @@
   
   "Takes binary data and a collection of keysize-distance maps... breaks up the data into smallest-distance-keysize blocks... transposes first byte of each block, second byte, and so on for length of keysize... returns a map of block-index, block-bytes, block-bytes-xord"
   
-  (let [keysize (:k (first kd-maps))
+  (let [keysize (:k (nth kd-maps 18)) ;; 18
         
         partitioned (vec (partition keysize bytes))
 
@@ -257,12 +269,15 @@
 (defn xor-key-over-bytes
   [key byte-coll]
   (let [blen (count byte-coll)
+        _ (println (map char key))
         klen (count key)
         rem (mod blen klen)
         krem (take rem key)
         kext (repeat (/ blen klen) key)
-        kext' (flatten (conj krem kext))]
-    kext'))
+        kext' (flatten (conj krem kext))
+        xord (map bit-xor bytez kext')
+        back-to-ascii (map char xord)]
+    (st/join back-to-ascii)))
 
 (def bytez (b64-txt-to-bytes set-1-challenge-6-data))
 
