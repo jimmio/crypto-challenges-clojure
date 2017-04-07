@@ -273,6 +273,8 @@
                                 (b64-txt-to-bin)
                                 (keysize-distances)))
 
+(def bytez (b64-txt-to-bytes set-1-challenge-6-data))
+
 (defn xor-key-over-bytes
   [key byte-coll]
   (let [blen (count byte-coll)
@@ -284,8 +286,6 @@
         xord (map bit-xor bytez kext')
         back-to-ascii (map char xord)]
     (st/join back-to-ascii)))
-
-(def bytez (b64-txt-to-bytes set-1-challenge-6-data))
 
 (def get-dat-key (->> bytez
                       (partition-transpose-score keysize-distance-maps)
