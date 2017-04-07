@@ -1,8 +1,8 @@
 (ns crypto-challenges.core
   (require [clojure.string :as st]
-           [clojure.data.codec.base64 :as b64]))
-
-(:import java.util.Base64)
+           [clojure.data.codec.base64 :as b64]
+           [clj-crypto.core :as cr])
+  (import (java.util.Base64)))
 
 (defn encode-hex
   "Accepts a collection of decimal byte values and encodes it to hexadecimal" 
@@ -307,3 +307,10 @@
         sbytes (get-bytes s)
         kbytes (get-bytes kext)]
     (encode-hex (map bit-xor sbytes kbytes))))
+
+
+;;;; DECRYPT AES IN ECB MODE ;;;;
+(def set-1-challenge-7-data
+  (clojure.java.io/file "resources/7.txt"))
+
+(def decrypt-aes-file (cr/decrypt "YELLOW SUBMARINE" (slurp set-1-challenge-6-data)))
