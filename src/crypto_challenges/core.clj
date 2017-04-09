@@ -1,8 +1,12 @@
 (ns crypto-challenges.core
   (require [clojure.string :as st]
            [clojure.data.codec.base64 :as b64]
-           [clj-crypto.core :as cr])
-  (import (java.util.Base64)))
+)
+  (import (java.util.Base64)
+          (javax.crypto Cipher KeyGenerator SecretKey)
+          (javax.crypto.spec SecretKeySpec)
+          (java.security SecureRandom)
+          (org.apache.commons.codec.binary Base64)))
 
 (defn encode-hex
   "Accepts a collection of decimal byte values and encodes it to hexadecimal" 
@@ -313,4 +317,33 @@
 (def set-1-challenge-7-data
   (clojure.java.io/file "resources/7.txt"))
 
-(def decrypt-aes-file (cr/decrypt "YELLOW SUBMARINE" (slurp set-1-challenge-6-data)))
+(defn bytes' [s]
+  (.getBytes s "UTF-8"))
+
+(defn base64 [b]
+  (Base64/encodeBase64String b))
+
+(defn debase64 [s]
+  (Base64/decodeBase64 (bytes' s)))
+
+(defn get-raw-key [seed]
+  (let [keygen (KeyGenerator/getInstance "AES")
+        sr (SecureRandom/getInstance "SHA1PRNG")]
+    (.setSeed sr (bytes' seed))
+    (.init keygen 128 sr)
+    (.. keygen generateKey getEncoded)))
+
+(defn get-cipher [mode seed]
+  (let [key-spec (SecretKeySpec. (get-raw-key seed) "AES/ECB/NoPadding")
+        cipher (Cipher/getInstance "AES/ECB/NoPadding")]
+    (.init cipher mode key-spec)
+    cipher))
+
+(defn encrypt [text key]
+  (let [bytes (bytes' text)
+        cipher (get-cipher Cipher/ENCRYPT_MODE key)]
+    (base64 (.doFinal cipher bytes))))
+
+(defn decrypt [text key]
+  (let [cipher (get-cipher Cipher/DECRYPT_MODE key)]
+    (String. (.doFinal cipher (debase64 text)))))
