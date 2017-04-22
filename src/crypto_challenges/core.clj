@@ -317,7 +317,7 @@
   (clojure.java.io/file "resources/7.txt"))
 
 (defn decrypt [k ciph-text]
-  "Takes cipher-text as bytes, key as string, and decrypts"
+  "Takes key as string, cipher text as bytes, and decrypts"
   (let [c (Cipher/getInstance "AES/ECB/NoPadding")
         k-spec (SecretKeySpec. (.getBytes k "UTF-8") "AES")
         init (.init c Cipher/DECRYPT_MODE k-spec)]
