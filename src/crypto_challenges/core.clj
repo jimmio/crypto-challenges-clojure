@@ -323,14 +323,14 @@
         init (.init c Cipher/DECRYPT_MODE k-spec)]
     (String. (.doFinal c ciph-text))))
 
-(defn bytes' [s]
-  (.getBytes s "UTF-8"))
-
 (defn debase64 [s]
-  (Base64/decodeBase64 (bytes' s)))
+  (Base64/decodeBase64 (.getBytes s "UTF-8")))
 
 (def set-1-challenge-7-solution
   (->> set-1-challenge-7-data
        (slurp)
        (debase64)
        (decrypt "YELLOW SUBMARINE")))
+
+
+;;;; DETECT AES IN ECB MODE ;;;;
