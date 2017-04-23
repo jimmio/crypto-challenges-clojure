@@ -349,13 +349,15 @@
   (javax.xml.bind.DatatypeConverter/parseHexBinary hex-str))
 
 (defn detect-aes-ecb
-  [hex-ciph-text]
-  (let [hex-str-coll (slurp-from-file-split hex-ciph-text)
-        decoded-coll (map hex-str-to-bytes hex-str-coll)
+  [hex-str]
+  (let [decoded (hex-str-to-bytes hex-str)
         k1 "1111222233334444"
         k2 "4444333322221111"
-        round-one (for [coll decoded-coll]
-                    (decrypt k1 coll))
-        round-two (for [coll decoded-coll]
-                    (decrypt k2 coll))]
-    (map #(= %1 %2) round-one round-two)))
+        round-one (decrypt k1 decoded)
+        round-two (decrypt k2 decoded)]
+    (when (= round-one round-two) hex-str)))
+
+(defn detect-aes-ecb-in-file
+  [hex-ciph-txt]
+  (let [hex-str-coll (slurp-from-file-split hex-ciph-txt)]
+    (map #(detect-aes-ecb %) hex-str-coll)))
