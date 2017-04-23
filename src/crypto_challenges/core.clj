@@ -5,7 +5,8 @@
           (javax.crypto Cipher KeyGenerator SecretKey)
           (javax.crypto.spec SecretKeySpec)
           (java.security SecureRandom)
-          (org.apache.commons.codec.binary Base64)))
+          (org.apache.commons.codec.binary Base64)
+          (javax.xml.bind.DatatypeConverter)))
 
 (defn encode-hex
   "Accepts a collection of decimal byte values and encodes it to hexadecimal" 
@@ -29,6 +30,12 @@
   (apply str (map
               (fn [[x y]] (char (Integer/parseInt (str x y) 16)))
               (partition 2 hexstr))))
+
+(defn decode-hex-to-bytes
+  "Accepts hex string and returns it decoded"
+  [hexstr]
+  (let [partitioned (partition 2 hexstr)]
+    (map (fn [[x y]] (char (Integer/parseInt (str x y) 16))) partitioned)))
 
 (defn get-bytes
   "Accepts a string of chars and returns a map of their respective byte values"
@@ -334,3 +341,16 @@
 
 
 ;;;; DETECT AES IN ECB MODE ;;;;
+(def set-1-challenge-8-data
+  (clojure.java.io/file "resources/8.txt"))
+
+(defn hex-str-to-bytes
+  [hex-str]
+  (javax.xml.bind.DatatypeConverter/parseHexBinary hex-str))
+
+(defn detect-aes-ecb
+  [hex-ciph-text]
+  (let [hex-str-coll (slurp-from-file-split hex-ciph-text)
+        decoded-coll (map hex-str-to-bytes hex-str-coll)]
+    (for [coll decoded-coll]
+      (decrypt "YELLOW SUBMARINE" coll))))
