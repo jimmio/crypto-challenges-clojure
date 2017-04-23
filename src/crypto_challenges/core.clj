@@ -351,6 +351,11 @@
 (defn detect-aes-ecb
   [hex-ciph-text]
   (let [hex-str-coll (slurp-from-file-split hex-ciph-text)
-        decoded-coll (map hex-str-to-bytes hex-str-coll)]
-    (for [coll decoded-coll]
-      (decrypt "YELLOW SUBMARINE" coll))))
+        decoded-coll (map hex-str-to-bytes hex-str-coll)
+        k1 "1111222233334444"
+        k2 "4444333322221111"
+        round-one (for [coll decoded-coll]
+                    (decrypt k1 coll))
+        round-two (for [coll decoded-coll]
+                    (decrypt k2 coll))]
+    (map #(= %1 %2) round-one round-two)))
