@@ -344,20 +344,18 @@
 (def set-1-challenge-8-data
   (clojure.java.io/file "resources/8.txt"))
 
-(defn hex-str-to-bytes
+#_(defn hex-str-to-bytes
   [hex-str]
   (javax.xml.bind.DatatypeConverter/parseHexBinary hex-str))
 
 (defn detect-aes-ecb
-  [hex-str]
-  (let [decoded (hex-str-to-bytes hex-str)
-        k1 "1111222233334444"
-        k2 "4444333322221111"
-        round-one (decrypt k1 decoded)
-        round-two (decrypt k2 decoded)]
-    (when (= round-one round-two) hex-str)))
-
-(defn detect-aes-ecb-in-file
-  [hex-ciph-txt]
-  (let [hex-str-coll (slurp-from-file-split hex-ciph-txt)]
-    (map #(detect-aes-ecb %) hex-str-coll)))
+  [col-hex-strs]
+  (for [s col-hex-strs]
+    (let [freq (->> s
+                    (partition 2)
+                    (map #(apply str %))
+                    (partition 16)
+                    (map frequencies)
+                    (map #(map val %)))]
+      (for [c freq]
+        (println "HERE'S ONE" c)))))
