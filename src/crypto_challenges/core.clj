@@ -333,17 +333,27 @@
   (clojure.java.io/file "resources/8.txt"))
 
 #_(defn hex-str-to-bytes
-  [hex-str]
-  (javax.xml.bind.DatatypeConverter/parseHexBinary hex-str))
+    [hex-str]
+    (javax.xml.bind.DatatypeConverter/parseHexBinary hex-str))
+
+(defn partition-hex-by-16
+  [hex-coll]
+  (->> hex-coll (partition 2) (map #(apply str %)) (partition 16)))
 
 (defn detect-aes-ecb
   [col-hex-strs]
   (for [s col-hex-strs]
-    (let [freq (->> s
-                    (partition 2)
-                    (map #(apply str %))
-                    (partition 16)
-                    (map frequencies)
-                    (map #(map val %)))]
-      (for [c freq]
-        (println "HERE'S ONE" c)))))
+    (let [bytes (partition-hex-by-16 s)
+          flattened (flatten bytes)
+          deduped (dedupe flattened)
+          counted (count deduped)
+          m {:str s
+             :deduped-count counted}]
+      m)))
+
+(defn detect-aes-ecb
+  [col-hex-strs]
+  (let [col-maps (for [s col-hex-strs]
+                   (let [counted (->> s (partition-hex-by-16) (flatten) (dedupe) (count))]
+                     {:str s :deduped-count counted}))]
+    (->> col-maps (sort-by :deduped-count) (first))))
