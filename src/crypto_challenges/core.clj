@@ -332,7 +332,7 @@
 (def set-1-challenge-8-data
   (clojure.java.io/file "resources/8.txt"))
 
-#_(defn hex-str-to-bytes
+(defn hex-str-to-bytes
     [hex-str]
     (javax.xml.bind.DatatypeConverter/parseHexBinary hex-str))
 
@@ -340,20 +340,18 @@
   [hex-coll]
   (->> hex-coll (partition 2) (map #(apply str %)) (partition 16)))
 
-(defn detect-aes-ecb
-  [col-hex-strs]
-  (for [s col-hex-strs]
-    (let [bytes (partition-hex-by-16 s)
-          flattened (flatten bytes)
-          deduped (dedupe flattened)
-          counted (count deduped)
-          m {:str s
-             :deduped-count counted}]
-      m)))
-
-(defn detect-aes-ecb
+#_(defn detect-aes-ecb
   [col-hex-strs]
   (let [col-maps (for [s col-hex-strs]
                    (let [counted (->> s (partition-hex-by-16) (flatten) (dedupe) (count))]
                      {:str s :deduped-count counted}))]
     (->> col-maps (sort-by :deduped-count) (first))))
+
+(defn detect-aes-ecb ;; NEED TO DETECT PAIRS!!!
+  [col-hex-strs]
+  (let [partitioned (map partition-hex-by-16 col-hex-strs)
+        cols-by-pos (map #(apply map vector %) partitioned)
+        freqs (map #(map frequencies %) cols-by-pos)
+        count-per-pos (for [col freqs]
+                        (map #(map val %) col))]
+    (map-indexed hash-map count-per-pos)))
