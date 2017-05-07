@@ -348,8 +348,8 @@
     (->> col-maps (sort-by :deduped-count) (first))))
 
 (defn detect-aes-ecb ;; NEED TO DETECT PAIRS!!!
-  [col-hex-strs]                                            ;; "aabbccdd" "eeff0011"
-  (let [partitioned (map partition-hex-by-16 col-hex-strs)  ;; ["aa" "bb" "cc" "dd"...] ["ee" "ff" "00" "11"...]
+  [col-hex-strs]                                               ;; "aabbccdd" "eeff0011"
+  (let [partitioned (map partition-hex-by-16 col-hex-strs)     ;; ["aa" "bb" "cc" "dd"...] ["ee" "ff" "00" "11"...]
         columns-by-pos (map #(apply map vector %) partitioned) ;; ["aa" "ee"...] ["bb" "ff"...] ["cc" "00"...] ["dd" "11"...]
         freqs (map #(map frequencies %) columns-by-pos)        ;; get frequency of byte by column
         count-per-pos (map (fn [column] (map #(map val %) column)) freqs)
