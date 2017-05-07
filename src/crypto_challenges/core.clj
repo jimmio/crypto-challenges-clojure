@@ -340,13 +340,6 @@
   [hex-coll]
   (->> hex-coll (partition 2) (map #(apply str %)) (partition 16)))
 
-#_(defn detect-aes-ecb
-  [col-hex-strs]
-  (let [col-maps (for [s col-hex-strs]
-                   (let [counted (->> s (partition-hex-by-16) (flatten) (dedupe) (count))]
-                     {:str s :deduped-count counted}))]
-    (->> col-maps (sort-by :deduped-count) (first))))
-
 (defn detect-aes-ecb ;; NEED TO DETECT PAIRS!!!
   [col-hex-strs]                                               ;; "aabbccdd" "eeff0011"
   (let [partitioned (map partition-hex-by-16 col-hex-strs)     ;; ["aa" "bb" "cc" "dd"...] ["ee" "ff" "00" "11"...]
@@ -365,3 +358,10 @@
         sorted (sort-by #(second (first %)) indexed)]
     (first (reverse sorted)))) ;; where K is the line number, and where V is the highest number of repetitions
                                ;; found for any column, returns {K V}
+
+
+;;;; IMPLEMENT PKCS#7 PADDING ;;;;
+(defn pkcs7-pad
+  [s block-len]
+  (let [p (- block-len (count s))]
+    (flatten (cons (map int s) (repeat p (byte p))))))
