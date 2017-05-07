@@ -348,10 +348,20 @@
     (->> col-maps (sort-by :deduped-count) (first))))
 
 (defn detect-aes-ecb ;; NEED TO DETECT PAIRS!!!
-  [col-hex-strs]
-  (let [partitioned (map partition-hex-by-16 col-hex-strs)
-        cols-by-pos (map #(apply map vector %) partitioned)
-        freqs (map #(map frequencies %) cols-by-pos)
-        count-per-pos (for [col freqs]
-                        (map #(map val %) col))]
-    (map-indexed hash-map count-per-pos)))
+  [col-hex-strs]                                            ;; "aabbccdd" "eeff0011"
+  (let [partitioned (map partition-hex-by-16 col-hex-strs)  ;; ["aa" "bb" "cc" "dd"...] ["ee" "ff" "00" "11"...]
+        columns-by-pos (map #(apply map vector %) partitioned) ;; ["aa" "ee"...] ["bb" "ff"...] ["cc" "00"...] ["dd" "11"...]
+        freqs (map #(map frequencies %) columns-by-pos)        ;; get frequency of byte by column
+        count-per-pos (map (fn [column] (map #(map val %) column)) freqs)
+        most-frequent #(reduce (fn [accum itm]
+                                 (if (> itm accum) itm accum)) %)
+        most-frequent-per-col (map #(map most-frequent %) count-per-pos)
+        reduced (map
+                 (fn [m]
+                   (map #(reduce + (second %)) m)
+                   (first m))
+                 most-frequent-per-col)
+        indexed (map-indexed hash-map reduced)
+        sorted (sort-by #(second (first %)) indexed)]
+    (first (reverse sorted)))) ;; where K is the line number, and where V is the highest number of repetitions
+                               ;; found for any column, returns {K V}
