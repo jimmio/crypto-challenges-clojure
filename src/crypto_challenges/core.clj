@@ -319,16 +319,16 @@ byte array or a decrypted string"
   (let [c (Cipher/getInstance "AES/ECB/NoPadding")
         k-spec (SecretKeySpec. (.getBytes k "UTF-8") "AES")
         mode' (condp = mode
-                :decrypt Cipher/DECRYPT_MODE
-                :encrypt Cipher/ENCRYPT_MODE)
+                :encrypt Cipher/ENCRYPT_MODE
+                :decrypt Cipher/DECRYPT_MODE)
         init (.init c mode' k-spec)
         ciph-text' (condp = mode
                      :encrypt (.getBytes ciph-text)
                      :decrypt ciph-text)
         result (.doFinal c ciph-text')]
     (condp = mode
-      :decrypt (st/join (map char result))
-      :encrypt result)))
+      :encrypt result
+      :decrypt (st/join (map char result)))))
 
 (defn debase64 [s]
   (Base64/decodeBase64 (.getBytes s "UTF-8")))
