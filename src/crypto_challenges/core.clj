@@ -311,8 +311,8 @@
 (def set-1-challenge-7-data
   (clojure.java.io/file "resources/7.txt"))
 
-(defn aes-ecb [mode k ciph-text output]
-  "Takes key as string, cipher text as bytes, and decrypts"
+(defn aes-ecb [mode k ciph-text]
+  "Takes a mode encrypt/decrypt, key as string, cipher text as bytes, and returns either an encrypted byte array or a decrypted string"
   (let [c (Cipher/getInstance "AES/ECB/NoPadding")
         k-spec (SecretKeySpec. (.getBytes k "UTF-8") "AES")
         mode' (condp = mode
@@ -320,9 +320,9 @@
                 :encrypt Cipher/ENCRYPT_MODE)
         init (.init c mode' k-spec)
         result (.doFinal c ciph-text)]
-    (condp = output
-      :byte-array result
-      :string (st/join (map char result)))))
+    (condp = mode
+      :decrypt (st/join (map char result))
+      :encrypt result)))
 
 (defn debase64 [s]
   (Base64/decodeBase64 (.getBytes s "UTF-8")))
@@ -331,7 +331,7 @@
   (->> set-1-challenge-7-data
        (slurp)
        (debase64)
-       #(aes-ecb :decrypt "YELLOW SUBMARINE" % :string)))
+       (aes-ecb :decrypt "YELLOW SUBMARINE")))
 
 
 ;;;; DETECT AES IN ECB MODE ;;;;
