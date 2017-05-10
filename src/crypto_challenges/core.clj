@@ -312,14 +312,20 @@
   (clojure.java.io/file "resources/7.txt"))
 
 (defn aes-ecb [mode k ciph-text]
-  "Takes a mode encrypt/decrypt, key as string, cipher text as bytes, and returns either an encrypted byte array or a decrypted string"
+  "Takes a mode encrypt/decrypt, key as string,
+cipher text as string (encrypt mode) or bytes
+(decrypt mode) and returns either an encrypted
+byte array or a decrypted string"
   (let [c (Cipher/getInstance "AES/ECB/NoPadding")
         k-spec (SecretKeySpec. (.getBytes k "UTF-8") "AES")
         mode' (condp = mode
                 :decrypt Cipher/DECRYPT_MODE
                 :encrypt Cipher/ENCRYPT_MODE)
         init (.init c mode' k-spec)
-        result (.doFinal c ciph-text)]
+        ciph-text' (condp = mode
+                     :encrypt (.getBytes ciph-text)
+                     :decrypt ciph-text)
+        result (.doFinal c ciph-text')]
     (condp = mode
       :decrypt (st/join (map char result))
       :encrypt result)))
