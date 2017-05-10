@@ -311,12 +311,18 @@
 (def set-1-challenge-7-data
   (clojure.java.io/file "resources/7.txt"))
 
-(defn decrypt [k ciph-text]
+(defn aes-ecb [mode k ciph-text output]
   "Takes key as string, cipher text as bytes, and decrypts"
   (let [c (Cipher/getInstance "AES/ECB/NoPadding")
         k-spec (SecretKeySpec. (.getBytes k "UTF-8") "AES")
-        init (.init c Cipher/DECRYPT_MODE k-spec)]
-    (String. (.doFinal c ciph-text))))
+        mode' (condp = mode
+                :decrypt Cipher/DECRYPT_MODE
+                :encrypt Cipher/ENCRYPT_MODE)
+        init (.init c mode' k-spec)
+        result (.doFinal c ciph-text)]
+    (condp = output
+      :byte-array result
+      :string (st/join (map char result)))))
 
 (defn debase64 [s]
   (Base64/decodeBase64 (.getBytes s "UTF-8")))
@@ -325,7 +331,7 @@
   (->> set-1-challenge-7-data
        (slurp)
        (debase64)
-       (decrypt "YELLOW SUBMARINE")))
+       #(aes-ecb :decrypt "YELLOW SUBMARINE" % :string)))
 
 
 ;;;; DETECT AES IN ECB MODE ;;;;
@@ -333,14 +339,14 @@
   (clojure.java.io/file "resources/8.txt"))
 
 (defn hex-str-to-bytes
-    [hex-str]
-    (javax.xml.bind.DatatypeConverter/parseHexBinary hex-str))
+  [hex-str]
+  (javax.xml.bind.DatatypeConverter/parseHexBinary hex-str))
 
 (defn partition-hex-by-16
   [hex-coll]
   (->> hex-coll (partition 2) (map #(apply str %)) (partition 16)))
 
-(defn detect-aes-ecb ;; NEED TO DETECT PAIRS!!!
+(defn detect-aes-ecb
   [col-hex-strs]                                               ;; "aabbccdd" "eeff0011"
   (let [partitioned (map partition-hex-by-16 col-hex-strs)     ;; ["aa" "bb" "cc" "dd"...] ["ee" "ff" "00" "11"...]
         columns-by-pos (map #(apply map vector %) partitioned) ;; ["aa" "ee"...] ["bb" "ff"...] ["cc" "00"...] ["dd" "11"...]
@@ -365,3 +371,16 @@
   [s block-len]
   (let [p (- block-len (count s))]
     (flatten (cons (map int s) (repeat p (byte p))))))
+
+
+;;;; IMPLEMENT CBC MODE ;;;;
+
+;; CBC mode is a block cipher mode that allows us to encrypt irregularly-sized messages, despite the fact that a block cipher natively only transforms individual blocks.
+
+;; In CBC mode, each ciphertext block is added to the next plaintext block before the next call to the cipher core.
+
+;; The first plaintext block, which has no associated previous ciphertext block, is added to a "fake 0th ciphertext block" called the initialization vector, or IV.
+
+;; Implement CBC mode by hand by taking the ECB function you wrote earlier, making it encrypt instead of decrypt (verify this by decrypting whatever you encrypt to test), and using your XOR function from the previous exercise to combine them.
+
+;; The file here is intelligible (somewhat) when CBC decrypted against "YELLOW SUBMARINE" with an IV of all ASCII 0 (\x00\x00\x00 &c)
