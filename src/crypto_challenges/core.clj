@@ -311,22 +311,22 @@
 (def set-1-challenge-7-data
   (clojure.java.io/file "resources/7.txt"))
 
-(defn aes-ecb [mode k ciph-text]
+(defn aes-ecb [mode k text]
   "Takes a mode encrypt/decrypt, key as string,
-cipher text as string (encrypt mode) or bytes
-(decrypt mode) and returns either an encrypted
-byte array or a decrypted string"
+text as string (encrypt mode) or bytes (decrypt
+mode) and returns either an encrypted byte array
+or a decrypted string"
   (let [c (Cipher/getInstance "AES/ECB/NoPadding")
         k-spec (SecretKeySpec. (.getBytes k "UTF-8") "AES")
         mode' (condp = mode
                 :encrypt Cipher/ENCRYPT_MODE
                 :decrypt Cipher/DECRYPT_MODE)
         init (.init c mode' k-spec)
-        ciph-text' (condp = mode
-                     :encrypt (.getBytes ciph-text)
-                     :decrypt ciph-text)
-        result (.doFinal c ciph-text')]
-    (condp = mode
+        #_text' #_(if (= (type text) "java.lang.String")
+                (.getBytes text)
+                text)]
+    (.doFinal c text)
+    #_(condp = mode
       :encrypt result
       :decrypt (st/join (map char result)))))
 
@@ -379,14 +379,44 @@ byte array or a decrypted string"
     (flatten (cons (map int s) (repeat p (byte p))))))
 
 
-;;;; IMPLEMENT CBC MODE ;;;;
+;; If the first block has index 1, the mathematical formula for CBC encryption is
 
-;; CBC mode is a block cipher mode that allows us to encrypt irregularly-sized messages, despite the fact that a block cipher natively only transforms individual blocks.
+;;     Ci = EK(Pi ⊕ Ci−1)
+;;     C0 = I V
 
-;; In CBC mode, each ciphertext block is added to the next plaintext block before the next call to the cipher core.
+;; while the mathematical formula for CBC decryption is
 
-;; The first plaintext block, which has no associated previous ciphertext block, is added to a "fake 0th ciphertext block" called the initialization vector, or IV.
+;;     Pi = DK(Ci) ⊕ Ci−1 ,
+;;     C0 = IV
 
-;; Implement CBC mode by hand by taking the ECB function you wrote earlier, making it encrypt instead of decrypt (verify this by decrypting whatever you encrypt to test), and using your XOR function from the previous exercise to combine them.
+(def set-2-challenge-2-data (clojure.java.io/file "resources/10.txt"))
 
-;; The file here is intelligible (somewhat) when CBC decrypted against "YELLOW SUBMARINE" with an IV of all ASCII 0 (\x00\x00\x00 &c)
+;; massage the challenge data
+(defn massage-ivless-b64 [text]
+  (map byte-array (cons
+                   ;; make a 16-byte block of ascii 0 as iv
+                   (repeat 16 48)
+                   (partition-all 16 (debase64 text)))))
+
+(def set-2-challenge-2-data-with-iv
+  (-> set-2-challenge-2-data
+      slurp
+      massage-ivless-b64))
+
+(defn aes-cbc-encrypt [k text iv]
+  (let [partitioned (partition-all 16 text)
+        padded (map #(pkcs7-pad % 16) partitioned)
+        iv' (.getBytes iv)]
+    (reduce (fn [accum itm]
+              (let [itm-bytes (byte-array itm) ;; when itm is iv', do we need to call byte-array?
+                    xord (byte-array (map bit-xor (last accum) itm-bytes))]
+                (conj accum (aes-ecb :encrypt k xord)))) (vector iv') padded)))
+
+(defn aes-cbc-decrypt [k text] ; iv should be first element in coll of byte arrays
+  (let [decrypted (map #(aes-ecb :decrypt k %) (rest text)) ; don't need to decrypt the iv
+        ;; w-iv (flatten (list (first text) decrypted)) ; restore iv to list
+        text-ints (map #(map int %) text)
+        decrypted-ints (map #(map int %) decrypted)
+        xord (map #(map bit-xor %1 %2) decrypted-ints text-ints)]
+    (st/join (flatten (map #(map char %) xord)))))
+
