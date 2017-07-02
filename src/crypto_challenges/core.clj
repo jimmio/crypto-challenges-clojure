@@ -420,3 +420,8 @@ or a decrypted string"
         xord (map #(map bit-xor %1 %2) decrypted-ints text-ints)]
     (st/join (flatten (map #(map char %) xord)))))
 
+
+;;;; ECB/CBC DETECTION ORACLE ;;;;
+
+(defn gen-aes-key []
+  (for [i (range 0 16)] (rand-int 257)))
