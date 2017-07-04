@@ -317,18 +317,18 @@ text as string (encrypt mode) or bytes (decrypt
 mode) and returns either an encrypted byte array
 or a decrypted string"
   (let [c (Cipher/getInstance "AES/ECB/NoPadding")
-        k-spec (SecretKeySpec. (.getBytes k "UTF-8") "AES")
+        k' (if (= (type k) java.lang.String)
+             (.getBytes k "UTF-8")
+             k)
+        k-spec (SecretKeySpec. k' "AES")
         mode' (condp = mode
                 :encrypt Cipher/ENCRYPT_MODE
                 :decrypt Cipher/DECRYPT_MODE)
         init (.init c mode' k-spec)
-        #_text' #_(if (= (type text) "java.lang.String")
-                (.getBytes text)
+        text' (if (= (type text) java.lang.String)
+                (.getBytes text "UTF-8")
                 text)]
-    (.doFinal c text)
-    #_(condp = mode
-      :encrypt result
-      :decrypt (st/join (map char result)))))
+    (.doFinal c text')))
 
 (defn debase64 [s]
   (Base64/decodeBase64 (.getBytes s "UTF-8")))
@@ -337,7 +337,9 @@ or a decrypted string"
   (->> set-1-challenge-7-data
        (slurp)
        (debase64)
-       (aes-ecb :decrypt "YELLOW SUBMARINE")))
+       (aes-ecb :decrypt "YELLOW SUBMARINE")
+       (map char)
+       (st/join)))
 
 
 ;;;; DETECT AES IN ECB MODE ;;;;
@@ -414,7 +416,6 @@ or a decrypted string"
 
 (defn aes-cbc-decrypt [k text] ; iv should be first element in coll of byte arrays
   (let [decrypted (map #(aes-ecb :decrypt k %) (rest text)) ; don't need to decrypt the iv
-        ;; w-iv (flatten (list (first text) decrypted)) ; restore iv to list
         text-ints (map #(map int %) text)
         decrypted-ints (map #(map int %) decrypted)
         xord (map #(map bit-xor %1 %2) decrypted-ints text-ints)]
@@ -424,4 +425,10 @@ or a decrypted string"
 ;;;; ECB/CBC DETECTION ORACLE ;;;;
 
 (defn gen-aes-key []
-  (for [i (range 0 16)] (rand-int 257)))
+  (let [rand-ints (for [i (range 0 16)] (rand-int 129))]
+    (byte-array rand-ints)))
+
+(defn aes-encrypt-random [plain]
+  (let [k (gen-aes-key)
+        _ (println (count k))]
+    (aes-ecb :encrypt k plain)))
