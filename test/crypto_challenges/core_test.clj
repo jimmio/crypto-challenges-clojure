@@ -29,3 +29,26 @@
           dis 37
           result (hamming-distance s1 s2)]
       (is (= result dis)))))
+
+(deftest aes
+  (testing "aes-ecb roundtrip -- random key -- 16-byte plaintext"
+    (let [key (gen-aes-key)
+          text "poopy bum sim su"
+          encrypted (aes-ecb :encrypt key text)
+          decrypted (aes-ecb :decrypt key encrypted)]
+      (is (= text (clojure.string/join (map char decrypted))))))
+
+  (testing "aes-ecb roundtrip -- random key -- 32-byte plaintext"
+    (let [key (gen-aes-key)
+          text "poopy bum sim super 88 8 uu ie e"
+          encrypted (aes-ecb :encrypt key text)
+          decrypted (aes-ecb :decrypt key encrypted)]
+      (is (= text (clojure.string/join (map char decrypted))))))
+
+  (testing "aes-cbc roundtrip -- random key -- random iv"
+    (let [key (gen-aes-key)
+          text "Do you have experience in project management or have worked as a project analyst within Information Technology (IT)? If so the Department of Innovation & Performance has the perfect position for you! Project Management Office Lead. Posted Now!"
+          iv (gen-aes-key)
+          encrypted (aes-cbc-encrypt key text iv)
+          decrypted (aes-cbc-decrypt key encrypted)]
+      (is (= text decrypted)))))
