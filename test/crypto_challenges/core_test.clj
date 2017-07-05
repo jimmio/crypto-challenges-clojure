@@ -45,10 +45,20 @@
           decrypted (aes-ecb :decrypt key encrypted)]
       (is (= text (clojure.string/join (map char decrypted))))))
 
-  (testing "aes-cbc roundtrip -- random key -- random iv"
+  (testing "aes-cbc roundtrip -- random key"
     (let [key (gen-aes-key)
           text "Do you have experience in project management or have worked as a project analyst within Information Technology (IT)? If so the Department of Innovation & Performance has the perfect position for you! Project Management Office Lead. Posted Now!"
-          iv (gen-aes-key)
+          expected "Do you have experience in project management or have worked as a project analyst within Information Technology (IT)? If so the Department of Innovation & Performance has the perfect position for you! Project Management Office Lead. Posted Now!\r\r\r\r\r\r\r\r\r\r\r\r\r"
+          iv "0000111122223333"
           encrypted (aes-cbc-encrypt key text iv)
           decrypted (aes-cbc-decrypt key encrypted)]
-      (is (= text decrypted)))))
+      (is (= decrypted expected))))
+
+  (testing "aes-cbc roundtrip -- random key -- single block"
+    (let [key (gen-aes-key)
+          text "Do you have ex"
+          expected (str "Do you have ex" (char 2) (char 2))
+          iv "0000111122223333"
+          encrypted (aes-cbc-encrypt key text iv)
+          decrypted (aes-cbc-decrypt key encrypted)]
+      (is (= decrypted expected)))))
