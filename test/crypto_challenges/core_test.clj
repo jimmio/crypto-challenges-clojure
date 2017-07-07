@@ -26,11 +26,11 @@ a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"]
 
 (deftest set-1-challenge-6
   (testing "Hamming distance"
-    (let [s1 "this is a test"
-          s2 "wokka wokka!!!"
-          dis 37
+    (let [s1 (-> "this is a test" get-bytes make-bin)
+          s2 (-> "wokka wokka!!!" get-bytes make-bin)
+          distance 37
           result (hamming-distance s1 s2)]
-      (is (= result dis)))))
+      (is (= result distance)))))
 
 (deftest aes
   (testing "aes-ecb roundtrip -- random key -- 16-byte plaintext"
