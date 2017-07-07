@@ -430,5 +430,7 @@ or a decrypted string"
 
 (defn aes-encrypt-random [plain]
   (let [k (gen-aes-key)
-        _ (println (count k))]
-    (aes-ecb :encrypt k plain)))
+        plain' (if (= 0 (mod (count plain) 16))
+                 plain
+                 (st/join (map char (pkcs7-pad plain 16))))]
+    (aes-ecb :encrypt k plain')))
