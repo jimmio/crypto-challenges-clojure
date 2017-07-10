@@ -325,9 +325,11 @@ or a decrypted string"
                 :encrypt Cipher/ENCRYPT_MODE
                 :decrypt Cipher/DECRYPT_MODE)
         init (.init c mode' k-spec)
-        text' (if (= (type text) java.lang.String)
-                (.getBytes text "UTF-8")
-                text)]
+        _ (println "TYPE TEXT" (type text) "TEXT" text)
+        text' (if (not= (type text) java.lang.String)
+                text
+                (.getBytes text "UTF-8"))
+        _ (println "TYPE TEXT'" (type 'text))]
     (.doFinal c text')))
 
 (defn debase64 [s]
@@ -407,7 +409,9 @@ or a decrypted string"
 
 (defn aes-cbc-encrypt [k text iv]
   (let [partitioned (partition-all 16 text)
+        _ (println "PARTITIONED" partitioned "\n\n")
         padded (map #(pkcs7-pad % 16) partitioned)
+        _ (println "PADDED" padded "\n\n")
         iv' (.getBytes iv)]
     (reduce (fn [accum itm]
               (let [itm-bytes (byte-array itm) ;; when itm is iv', do we need to call byte-array?
@@ -459,7 +463,9 @@ or a decrypted string"
         rand-pad-pre (get-random-padding)
         rand-pad-post (get-random-padding)
         rand-padded (flatten (list rand-pad-pre plain' rand-pad-post))
-        partitioned (partition-all 16 rand-padded)
-        padded (map #(pkcs7-pad % 16) partitioned)
-        b (byte-array (flatten padded))]
-    (aes-ecb :encrypt k b)))
+        coin-flip (rand)]
+    (if (< coin-flip 0.5)
+      (let [partitioned (partition-all 16 rand-padded)
+            padded (map #(pkcs7-pad % 16) partitioned)]
+        (map #(aes-ecb :encrypt k %) padded))
+      (aes-cbc-encrypt k rand-padded "aaaabbbbccccdddd"))))
