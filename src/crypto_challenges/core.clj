@@ -325,11 +325,9 @@ or a decrypted string"
                 :encrypt Cipher/ENCRYPT_MODE
                 :decrypt Cipher/DECRYPT_MODE)
         init (.init c mode' k-spec)
-        _ (println "TYPE TEXT" (type text) "TEXT" text)
         text' (if (not= (type text) java.lang.String)
                 text
-                (.getBytes text "UTF-8"))
-        _ (println "TYPE TEXT'" (type 'text))]
+                (.getBytes text "UTF-8"))]
     (.doFinal c text')))
 
 (defn debase64 [s]
@@ -357,9 +355,12 @@ or a decrypted string"
   (->> hex-coll (partition 2) (map #(apply str %)) (partition 16)))
 
 (defn detect-aes-ecb
-  [col-hex-strs]                                               ;; "aabbccdd" "eeff0011"
-  (let [partitioned (map partition-hex-by-16 col-hex-strs)     ;; ["aa" "bb" "cc" "dd"...] ["ee" "ff" "00" "11"...]
+  [mode coll]                                                  ;; "aabbccdd" "eeff0011"
+  (let [partitioned (condp = mode
+                      :hex (map partition-hex-by-16 coll)      ;; ["aa" "bb" "cc" "dd"...] ["ee" "ff" "00" "11"...]
+                      :ints coll)
         columns-by-pos (map #(apply map vector %) partitioned) ;; ["aa" "ee"...] ["bb" "ff"...] ["cc" "00"...] ["dd" "11"...]
+        _ (println columns-by-pos)
         freqs (map #(map frequencies %) columns-by-pos)        ;; get frequency of byte by column
         count-per-pos (map (fn [column] (map #(map val %) column)) freqs)
         most-frequent #(reduce (fn [accum itm]
@@ -409,10 +410,10 @@ or a decrypted string"
 
 (defn aes-cbc-encrypt [k text iv]
   (let [partitioned (partition-all 16 text)
-        _ (println "PARTITIONED" partitioned "\n\n")
         padded (map #(pkcs7-pad % 16) partitioned)
-        _ (println "PADDED" padded "\n\n")
-        iv' (.getBytes iv)]
+        iv' (if (= (type iv) java.lang.String)
+              (.getBytes iv)
+              iv)]
     (reduce (fn [accum itm]
               (let [itm-bytes (byte-array itm) ;; when itm is iv', do we need to call byte-array?
                     xord (byte-array (map bit-xor (last accum) itm-bytes))]
@@ -466,6 +467,14 @@ or a decrypted string"
         coin-flip (rand)]
     (if (< coin-flip 0.5)
       (let [partitioned (partition-all 16 rand-padded)
-            padded (map #(pkcs7-pad % 16) partitioned)]
-        (map #(aes-ecb :encrypt k %) padded))
-      (aes-cbc-encrypt k rand-padded "aaaabbbbccccdddd"))))
+            padded (map #(pkcs7-pad % 16) partitioned)
+            byted (map byte-array padded)]
+        (vec (map #(aes-ecb :encrypt k %) byted)))
+      (let [iv (gen-aes-key)]
+        (aes-cbc-encrypt k rand-padded iv)))))
+
+(defn aes-detection-oracle [bytez]
+  (let [ints (if (> (count bytez) 1)
+               (map #(map int %) bytez)
+               (map int bytez))]
+    (detect-aes-ecb :ints ints)))
