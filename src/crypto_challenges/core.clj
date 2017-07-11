@@ -355,26 +355,33 @@ or a decrypted string"
   (->> hex-coll (partition 2) (map #(apply str %)) (partition 16)))
 
 (defn detect-aes-ecb
+  "hex mode is set up to not only handle hex byte colls, but also compare several multiline ciphertexts (a la hex dump) for aes-ecb candidacy.  ints mode handles int byte colls on a ciphertext-by-ciphertext basis.  this should really be set up for ints in both cases."
   [mode coll]                                                  ;; "aabbccdd" "eeff0011"
   (let [partitioned (condp = mode
                       :hex (map partition-hex-by-16 coll)      ;; ["aa" "bb" "cc" "dd"...] ["ee" "ff" "00" "11"...]
                       :ints coll)
-        columns-by-pos (map #(apply map vector %) partitioned) ;; ["aa" "ee"...] ["bb" "ff"...] ["cc" "00"...] ["dd" "11"...]
-        _ (println columns-by-pos)
-        freqs (map #(map frequencies %) columns-by-pos)        ;; get frequency of byte by column
-        count-per-pos (map (fn [column] (map #(map val %) column)) freqs)
-        most-frequent #(reduce (fn [accum itm]
-                                 (if (> itm accum) itm accum)) %)
-        most-frequent-per-col (map #(map most-frequent %) count-per-pos)
-        reduced (map
-                 (fn [m]
-                   (map #(reduce + (second %)) m)
-                   (first m))
-                 most-frequent-per-col)
-        indexed (map-indexed hash-map reduced)
-        sorted (sort-by #(second (first %)) indexed)]
-    (first (reverse sorted)))) ;; where K is the line number, and where V is the highest number of repetitions
-                               ;; found for any column, returns {K V}
+        columns-by-pos (condp = mode
+                         :hex (map #(apply map vector %) partitioned)
+                         :ints (apply map vector partitioned)) ;; ["aa" "ee"...] ["bb" "ff"...] ["cc" "00"...] ["dd" "11"...]
+        freqs (condp = mode
+                :hex (map #(map frequencies %) columns-by-pos)
+                :ints (map frequencies columns-by-pos))        ;; get frequency of byte by column
+        _ (println "COLUMNS BY POS" columns-by-pos "\n\nFREQS" freqs)]
+        (condp = mode
+          :hex (let [count-per-pos (map (fn [column] (map #(map val %) column)) freqs)
+                     most-frequent #(reduce (fn [accum itm]
+                                              (if (> itm accum) itm accum)) %)
+                     most-frequent-per-col (map #(map most-frequent %) count-per-pos)
+                     reduced (map
+                              (fn [m]
+                                (map #(reduce + (second %)) m)
+                                (first m))
+                              most-frequent-per-col)
+                     indexed (map-indexed hash-map reduced)
+                     sorted (sort-by #(second (first %)) indexed)]
+                 (first (reverse sorted))) ;; where K is the line number, and where V is the highest number of repetitions
+                                           ;; found for any column, returns {K V}
+          :ints ())))
 
 
 ;;;; IMPLEMENT PKCS#7 PADDING ;;;;
