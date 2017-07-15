@@ -357,12 +357,14 @@ or a decrypted string"
 (defn detect-aes-ecb
   "hex mode is set up to not only handle hex byte colls, but also compare several multiline ciphertexts (a la hex dump) for aes-ecb candidacy.  ints mode handles int byte colls on a ciphertext-by-ciphertext basis.  this should really be set up for ints in both cases."
   [mode coll]                                                  ;; "aabbccdd" "eeff0011"
-  (let [partitioned (condp = mode
+  (let [_ (println coll)
+        partitioned (condp = mode
                       :hex (map partition-hex-by-16 coll)      ;; ["aa" "bb" "cc" "dd"...] ["ee" "ff" "00" "11"...]
                       :ints coll)
         columns-by-pos (condp = mode
                          :hex (map #(apply map vector %) partitioned)
                          :ints (apply map vector partitioned)) ;; ["aa" "ee"...] ["bb" "ff"...] ["cc" "00"...] ["dd" "11"...]
+        _ (println "COLUMNS-BY-POSITION" columns-by-pos)
         freqs (condp = mode
                 :hex (map #(map frequencies %) columns-by-pos)
                 :ints (map frequencies columns-by-pos))]       ;; get frequency of byte by column
@@ -387,8 +389,10 @@ or a decrypted string"
                                              (float (/ val-sum val-count))))
                                        vals)]
                   (if (some #(> % 1.5) avg-per-col)
-                    (println "Encrypted in ECB mode.")
-                    (println "Encrypted in CBC mode.")))))) ;; assuming that AES-CBC is a possible mode of input
+                    (do (println "Encrypted in ECB mode.")
+                        true)
+                    (do (println "Encrypted in CBC mode.")
+                        false)))))) ;; assuming that AES-CBC is a possible mode of input
 
 
 ;;;; IMPLEMENT PKCS#7 PADDING ;;;;
@@ -481,6 +485,9 @@ aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
 dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
 YnkK")
 
+(def zeroed-out
+  "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+
 (defonce challenge-12-mystery-key
   (gen-aes-key))
 
@@ -489,6 +496,7 @@ YnkK")
         plain' (map int plain)
         plain-w-mystery (flatten (cons plain' mystery-ints))
         partitioned (partition-all 16 plain-w-mystery)
+        _ (println (map count partitioned))
         padded (map #(pkcs7-pad % 16) partitioned)
         byted (map byte-array padded)
         k challenge-12-mystery-key
@@ -503,3 +511,41 @@ YnkK")
         (if (= (count output) initial-count)
           (recur (str input "A"))
           (- (count output) initial-count))))))
+
+(defn is-ecb? [flat-ints]
+  (let [partitioned (partition-all 16 flat-ints)]
+    (detect-aes-ecb :ints partitioned)))
+
+;; (defn make-dictionary []
+;;   (apply hash-map
+;;          (flatten
+;;           (for [b (range 0 128)]
+;;             [(keyword (str b)) (char b)]))))
+
+;; (def dictionary (make-dictionary))
+
+(defn aes-ecb-decrypt-byte-at-a-time [byte-source]
+  (when (and
+         (= 16 (get-block-size byte-source))
+         (is-ecb? (byte-source zeroed-out)))
+    (let [one-byte-short (apply str (repeat 15 "A"))
+          dictionary (for [b (range 0 128)]
+                       (let [block (str one-byte-short (char b))
+                             result (byte-source block)
+                             _ (println "RESULT" result)]
+                         (list block result)))]
+      dictionary)))
+  
+
+;; Feed identical bytes of your-string to the function 1 at a time --- start with 1 byte ("A"), then "AA", then "AAA" and so on. Discover the block size of the cipher. You know it, but do this step anyway.
+
+;; Detect that the function is using ECB. You already know, but do this step anyways.
+
+;; Knowing the block size, craft an input block that is exactly 1 byte short (for instance, if the block size is 8 bytes, make "AAAAAAA"). Think about what the oracle function is going to put in that last byte position.
+
+;; Make a dictionary of every possible last byte by feeding different strings to the oracle; for instance, "AAAAAAAA", "AAAAAAAB", "AAAAAAAC", remembering the first block of each invocation.
+
+;; Match the output of the one-byte-short input to one of the entries in your dictionary. You've now discovered the first byte of unknown-string.
+
+;; Repeat for the next byte.
+
