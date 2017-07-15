@@ -471,3 +471,35 @@ or a decrypted string"
                (map #(map int %) bytez)
                (map int bytez))]
     (detect-aes-ecb :ints ints)))
+
+;;;; BYTE-AT-A-TIME ECB DECRYPTION (SIMPLER) ;;;;
+
+(def challenge-12-mystery-string
+  ;; b64-decode and then append to plaintext before encrypting
+  "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
+aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
+dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
+YnkK")
+
+(defonce challenge-12-mystery-key
+  (gen-aes-key))
+
+(defn aes-encrypt-ecb-unknown [plain]
+  (let [mystery-ints (map int (debase64 challenge-12-mystery-string))
+        plain' (map int plain)
+        plain-w-mystery (flatten (cons plain' mystery-ints))
+        partitioned (partition-all 16 plain-w-mystery)
+        padded (map #(pkcs7-pad % 16) partitioned)
+        byted (map byte-array padded)
+        k challenge-12-mystery-key
+        encrypted (vec (map #(aes-ecb :encrypt k %) byted))
+        flattened-ints (flatten (map #(map int %) encrypted))]
+    flattened-ints))
+
+(defn get-block-size [byte-source]
+  (let [initial-count (count (byte-source ""))]
+    (loop [input "A"]
+      (let [output (byte-source input)]
+        (if (= (count output) initial-count)
+          (recur (str input "A"))
+          (- (count output) initial-count))))))
