@@ -451,53 +451,23 @@ or a decrypted string"
   (let [n (+ 5 (rand-int 5))]
     (take n (repeatedly #(rand-int 256)))))
 
-(def challenge-12-mystery-string
-  ;; b64-decode and then append to plaintext before encrypting
-  "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
-aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
-dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
-YnkK")
-
-(defonce challenge-12-mystery-key
-  (gen-aes-key))
-
-(defn aes-encrypt-random [plain mode]
+(defn aes-encrypt-random [plain]
   (let [k (gen-aes-key)
         plain' (map int plain)
         rand-pad-pre (get-random-padding)
         rand-pad-post (get-random-padding)
         rand-padded (flatten (list rand-pad-pre plain' rand-pad-post))
         coin-flip (rand)]
-    (condp = mode
-      :random (if (< coin-flip 0.5)
-                (let [partitioned (partition-all 16 rand-padded)
-                      padded (map #(pkcs7-pad % 16) partitioned)
-                      byted (map byte-array padded)]
-                  (vec (map #(aes-ecb :encrypt k %) byted)))
-                (let [iv (gen-aes-key)]
-                  (aes-cbc-encrypt k rand-padded iv)))
-      :ecb-only (let [partitioned (partition-all 16 plain')
-                      padded (map #(pkcs7-pad % 16) partitioned)
-                      byted (map byte-array padded)
-                      k' challenge-12-mystery-key]
-                  (vec (map #(aes-ecb :encrypt k' %) byted))))))
+    (if (< coin-flip 0.5)
+      (let [partitioned (partition-all 16 rand-padded)
+            padded (map #(pkcs7-pad % 16) partitioned)
+            byted (map byte-array padded)]
+        (vec (map #(aes-ecb :encrypt k %) byted)))
+      (let [iv (gen-aes-key)]
+        (aes-cbc-encrypt k rand-padded iv)))))
 
 (defn aes-detection-oracle [bytez]
   (let [ints (if (> (count bytez) 1)
                (map #(map int %) bytez)
                (map int bytez))]
     (detect-aes-ecb :ints ints)))
-
-
-;;;; BYTE-AT-A-TIME ECB DECRYPTION (SIMPLER) ;;;;
-
-(def challenge-12-mystery-string
-  ;; b64-decode and then append to plaintext before encrypting
-  "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
-aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
-dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
-YnkK")
-
-(defonce challenge-12-mystery-key
-  (gen-aes-key))
-
