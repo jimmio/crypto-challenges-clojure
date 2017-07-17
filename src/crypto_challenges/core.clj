@@ -513,31 +513,32 @@ YnkK")
   (let [partitioned (partition-all 16 flat-ints)]
     (detect-aes-ecb :ints partitioned)))
 
-;; (defn make-dictionary []
-;;   (apply hash-map
-;;          (flatten
-;;           (for [b (range 0 128)]
-;;             [(keyword (str b)) (char b)]))))
-
-;; (def dictionary (make-dictionary))
-
-(defn aes-ecb-decrypt-byte-at-a-time [byte-source]
+(defn aes-ecb-decrypt-byte-at-a-time [oracle]
   (when (and
-         (= 16 (get-block-size byte-source))
-         (is-ecb? (byte-source zeroed-out)))
-    (let [one-byte-short (apply str (repeat 15 "A"))
-          short-block-result (byte-source one-byte-short)
-          _ (println short-block-result)
-          target-byte (nth short-block-result 15)
-          int-to-key #(keyword (str %))
-          _ (println target-byte)
-          dictionary (for [b (range 0 128)]
-                       (let [block (str one-byte-short (char b))
-                             result (byte-source block)]
-                         (vector (int-to-key (nth result 15)) block)))
-          dictionary' (apply hash-map (flatten dictionary))
-          decrypted-byte (last ((int-to-key target-byte) dictionary'))]
-      decrypted-byte)))
+         (= 16 (get-block-size oracle))
+         (is-ecb? (oracle zeroed-out)))
+    (loop [prefix-size (dec 16)
+           solved-thus-far ""]
+      (if (neg? prefix-size)
+        solved-thus-far
+        (let [prefix' (if (empty? solved-thus-far)
+                        (apply str (repeat prefix-size "A"))
+                        (apply str (drop 1 solved-thus-far)))
+              _ (println "PREFIX'" prefix' "PREFIX COUNT" (count prefix'))
+              oracle-result (oracle prefix')
+              target-block (first (partition-all 16 oracle-result))
+              dictionary (for [b (range 0 256)]
+                           (let [dict-key (str prefix' (char b))
+                                 dict-val (oracle dict-key)]
+                             (vector dict-key dict-val)))
+              _ (println "ORACLE RESULT" oracle-result)
+              _ (println "TARGET BLOCK" target-block)
+              _ (println "DICTIONARY SAMPLE" (take 16 (second (first dictionary))))
+              match (some
+                     #(when (= (take 16 (second %)) target-block) (first %))
+                     dictionary)
+              _ (println "MATCH" match)]
+          (recur (dec prefix-size) match))))))
   
 
 ;; Feed identical bytes of your-string to the function 1 at a time --- start with 1 byte ("A"), then "AA", then "AAA" and so on. Discover the block size of the cipher. You know it, but do this step anyway.
