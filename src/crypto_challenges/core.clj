@@ -519,27 +519,23 @@ YnkK")
          (is-ecb? (oracle zeroed-out)))
     (loop [prefix-size (dec 16)
            solved-thus-far ""]
-      (if (neg? prefix-size)
-        solved-thus-far
-        (let [prefix' (if (empty? solved-thus-far)
-                        (apply str (repeat prefix-size "A"))
-                        (apply str (drop 1 solved-thus-far)))
-              _ (println "PREFIX'" prefix' "PREFIX COUNT" (count prefix'))
-              oracle-result (oracle prefix')
-              target-block (first (partition-all 16 oracle-result))
-              dictionary (for [b (range 0 256)]
-                           (let [dict-key (str prefix' (char b))
-                                 dict-val (oracle dict-key)]
-                             (vector dict-key dict-val)))
-              _ (println "ORACLE RESULT" oracle-result)
-              _ (println "TARGET BLOCK" target-block)
-              _ (println "DICTIONARY SAMPLE" (take 16 (second (first dictionary))))
-              match (some
-                     #(when (= (take 16 (second %)) target-block) (first %))
-                     dictionary)
-              _ (println "MATCH" match)]
-          (recur (dec prefix-size) match))))))
-  
+      (if (neg? prefix-size) solved-thus-far
+          (let [prefix (apply str (repeat prefix-size "A"))
+                prefix' (if (empty? solved-thus-far)
+                          (apply str (repeat prefix-size "A"))
+                          (apply str (drop 1 solved-thus-far)))
+                oracle-result (oracle prefix)
+                target-block (first (partition-all 16 oracle-result))
+                dictionary (for [b (range 0 256)]
+                             (let [dict-key (str prefix' (char b))
+                                   dict-val (oracle dict-key)]
+                               (vector dict-key dict-val)))
+                match (some
+                       #(when (= (take 16 (second %)) target-block) (first %))
+                       dictionary)
+                _ (println "MATCH" match)]
+            (recur (dec prefix-size) match))))))
+
 
 ;; Feed identical bytes of your-string to the function 1 at a time --- start with 1 byte ("A"), then "AA", then "AAA" and so on. Discover the block size of the cipher. You know it, but do this step anyway.
 
