@@ -555,6 +555,12 @@ YnkK")
   (let [split (st/split struct-cookie #"=|&")]
     (apply hash-map split)))
 
+(defn make-structured-cookie
+  [hmap]
+  (let [paired (map #(apply str (interpose "=" %)) hmap)
+        bounded (apply str (interpose "&" paired))]
+    bounded))
+
 (defn make-user-profile
   [email]
   {"email" email
