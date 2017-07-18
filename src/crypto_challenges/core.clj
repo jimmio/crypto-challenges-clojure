@@ -548,15 +548,15 @@ YnkK")
               (recur (dec prefix-size) match')))))))
 
 
-;; Feed identical bytes of your-string to the function 1 at a time --- start with 1 byte ("A"), then "AA", then "AAA" and so on. Discover the block size of the cipher. You know it, but do this step anyway.
+;;;; ECB cut-and-paste  ;;;;
 
-;; Detect that the function is using ECB. You already know, but do this step anyways.
+(defn cookie-to-hash-map
+  [struct-cookie] ;; eg, "foo=bar&baz=qux&zap=zazzle"
+  (let [split (st/split struct-cookie #"=|&")]
+    (apply hash-map split)))
 
-;; Knowing the block size, craft an input block that is exactly 1 byte short (for instance, if the block size is 8 bytes, make "AAAAAAA"). Think about what the oracle function is going to put in that last byte position.
-
-;; Make a dictionary of every possible last byte by feeding different strings to the oracle; for instance, "AAAAAAAA", "AAAAAAAB", "AAAAAAAC", remembering the first block of each invocation.
-
-;; Match the output of the one-byte-short input to one of the entries in your dictionary. You've now discovered the first byte of unknown-string.
-
-;; Repeat for the next byte.
-
+(defn make-user-profile
+  [email]
+  {"email" email
+   "uid" (rand-int 50)
+   "role" "user"})
