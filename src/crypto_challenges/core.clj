@@ -514,27 +514,38 @@ YnkK")
     (detect-aes-ecb :ints partitioned)))
 
 (defn aes-ecb-decrypt-byte-at-a-time [oracle]
-  (when (and
-         (= 16 (get-block-size oracle))
-         (is-ecb? (oracle zeroed-out)))
-    (loop [prefix-size (dec 16)
-           solved-thus-far ""]
-      (if (neg? prefix-size) solved-thus-far
-          (let [prefix (apply str (repeat prefix-size "A"))
-                prefix' (if (empty? solved-thus-far)
-                          (apply str (repeat prefix-size "A"))
-                          (apply str (drop 1 solved-thus-far)))
-                oracle-result (oracle prefix)
-                target-block (first (partition-all 16 oracle-result))
-                dictionary (for [b (range 0 256)]
-                             (let [dict-key (str prefix' (char b))
-                                   dict-val (oracle dict-key)]
-                               (vector dict-key dict-val)))
-                match (some
-                       #(when (= (take 16 (second %)) target-block) (first %))
-                       dictionary)
-                _ (println "MATCH" match)]
-            (recur (dec prefix-size) match))))))
+  (let [block-size (get-block-size oracle)
+        raw-resp (oracle "")
+        raw-resp-count (count raw-resp)
+        num-blocks (/ raw-resp-count block-size)
+        target-block-index (- num-blocks 1)]
+    (when (is-ecb? (oracle zeroed-out))
+      (loop [prefix-size (dec raw-resp-count)
+             solved ""]
+        (if (neg? prefix-size) solved
+            (let [prefix (apply str (repeat prefix-size "A"))
+                  prefix' (if (empty? solved)
+                            prefix
+                            (apply str (drop 1 solved)))
+                  ;; oracle needs the shortened string
+                  oracle-result (partition-all block-size (oracle prefix))
+                  target-block (nth oracle-result target-block-index)
+                  ;; dictionary needs the primed string
+                  dictionary (for [b (range 0 256)]
+                               (let [dict-key (str prefix' (char b))
+                                     dict-val (oracle dict-key)
+                                     dict-val (partition-all block-size dict-val)]
+                                 (vector dict-key dict-val)))
+                  match (some
+                         #(when
+                              (=
+                               (nth (second %) target-block-index)
+                               target-block)
+                            (first %))
+                         dictionary)
+                  match' (if (= nil match) solved match)
+                  _ (prn match')]
+              (recur (dec prefix-size) match')))))))
 
 
 ;; Feed identical bytes of your-string to the function 1 at a time --- start with 1 byte ("A"), then "AA", then "AAA" and so on. Discover the block size of the cipher. You know it, but do this step anyway.
