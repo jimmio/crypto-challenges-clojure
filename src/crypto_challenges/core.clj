@@ -559,7 +559,7 @@ YnkK")
 
 ;;;; ECB cut-and-paste  ;;;;
 
-(def user-profile-key (gen-aes-key))
+(defonce user-profile-key (gen-aes-key))
 
 (defn cookie-to-hash-map
   [struct-cookie] ;; eg, "foo=bar&baz=qux&zap=zazzle"
@@ -576,7 +576,7 @@ YnkK")
   [email]
   (let [sans-meta-chars (st/replace email #"=|&" "")]
     {"email" sans-meta-chars
-     "uid" (rand-int 50)
+     "uid" 10
      "role" "user"}))
 
 (defn encrypt-user-profile
@@ -586,7 +586,6 @@ YnkK")
                          make-user-profile
                          make-structured-cookie
                          (partition-all block-size))
-
         padded (map #(pkcs7-pad % block-size) partitioned)
         byted (map byte-array padded)]
     (map #(aes-ecb :encrypt user-profile-key %) byted)))
@@ -594,5 +593,35 @@ YnkK")
 (defn decrypt-user-profile
   [byte-arrays]
   (let [decrypted (map #(aes-ecb :decrypt user-profile-key %) byte-arrays)
-        chars (mapcat #(map char %) decrypted)]
-    (pkcs7-strip (st/join chars))))
+        chars (mapcat #(map char %) decrypted)
+        stripped (pkcs7-strip (st/join chars))]
+    (cookie-to-hash-map stripped)))
+
+(defn map-deep
+  [fn coll]
+  (map #(map fn %) coll))
+
+(defn handcrafted-role
+  []
+  (let [block-size 16
+        assumed-prefix "email="
+        assumed-suffix "&uid=10&role="
+        target-role "admin"
+        num-chars-target-role (count target-role)
+        num-chars-prefix (count assumed-prefix)
+        num-chars-suffix (count assumed-suffix)
+        num-chars-pre (- block-size num-chars-prefix)
+        num-chars-post-post (- block-size num-chars-suffix)
+        extend-pre (apply str (repeat num-chars-pre "0")) ;; fill first block
+        extend-post (st/join (map char (pkcs7-pad target-role block-size))) ;; fill second block
+        extend-post-post (apply str (repeat num-chars-post-post "0")) ;; fill third block
+        crafted-input (str extend-pre extend-post extend-post-post)
+        _ (println crafted-input)
+        oracle-response (encrypt-user-profile crafted-input)
+        _ (println oracle-response)
+        new-order [0 3 2 1]
+        newly-ordered (map #(nth oracle-response %) new-order)]
+    newly-ordered))
+
+(def challenge-13-solution
+  (decrypt-user-profile (handcrafted-role)))
