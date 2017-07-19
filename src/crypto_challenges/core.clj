@@ -399,6 +399,15 @@ or a decrypted string"
   (let [p (- block-len (count s))]
     (flatten (cons (map int s) (repeat p (byte p))))))
 
+(defn pkcs7-strip
+  [s]
+  (let [last-char (last s)
+        last-int (int last-char)
+        block-size 16
+        s-length (count s)]
+    (if (< last-int block-size)
+      (subs s 0 (- s-length last-int)))))
+
 
 ;; If the first block has index 1, the mathematical formula for CBC encryption is
 
@@ -586,4 +595,4 @@ YnkK")
   [byte-arrays]
   (let [decrypted (map #(aes-ecb :decrypt user-profile-key %) byte-arrays)
         chars (mapcat #(map char %) decrypted)]
-    (st/join chars)))
+    (pkcs7-strip (st/join chars))))
