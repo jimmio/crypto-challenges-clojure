@@ -550,6 +550,8 @@ YnkK")
 
 ;;;; ECB cut-and-paste  ;;;;
 
+(def user-profile-key (gen-aes-key))
+
 (defn cookie-to-hash-map
   [struct-cookie] ;; eg, "foo=bar&baz=qux&zap=zazzle"
   (let [split (st/split struct-cookie #"=|&")]
@@ -563,6 +565,25 @@ YnkK")
 
 (defn make-user-profile
   [email]
-  {"email" email
-   "uid" (rand-int 50)
-   "role" "user"})
+  (let [sans-meta-chars (st/replace email #"=|&" "")]
+    {"email" sans-meta-chars
+     "uid" (rand-int 50)
+     "role" "user"}))
+
+(defn encrypt-user-profile
+  [email]
+  (let [block-size 16
+        partitioned (->> email
+                         make-user-profile
+                         make-structured-cookie
+                         (partition-all block-size))
+
+        padded (map #(pkcs7-pad % block-size) partitioned)
+        byted (map byte-array padded)]
+    (map #(aes-ecb :encrypt user-profile-key %) byted)))
+
+(defn decrypt-user-profile
+  [byte-arrays]
+  (let [decrypted (map #(aes-ecb :decrypt user-profile-key %) byte-arrays)
+        chars (mapcat #(map char %) decrypted)]
+    (st/join chars)))
