@@ -701,5 +701,8 @@ YnkK")
                   _ (prn match')]
               (recur (dec prefix-size) match')))))))
 
-(defonce challenge-12-solution
-  (aes-ecb-decrypt-byte-at-a-time aes-ecb-oracle))
+;; (defonce challenge-12-solution
+;;   (aes-ecb-decrypt-byte-at-a-time aes-ecb-oracle))
+
+;; (defonce challenge-13-solution
+;;   (aes-ecb-decrypt-byte-at-a-time aes-ecb-oracle-random-prefix))
