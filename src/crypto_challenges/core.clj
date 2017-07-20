@@ -604,7 +604,7 @@ YnkK")
   (aes-ecb-oracle (str random-prefix-str plain)))
 
 (defn query-oracle [oracle]
-  "Performs the initial inquiry about block-size, identity of duplicate blocks, and index of first occurence of duplicate block"
+  "Performs the initial inquiry into block-size, and boundary between target data and garbage data (if any)"
   (let [raw-resp (oracle "")
         raw-resp-count (count raw-resp)]
     (loop [input "0"
@@ -622,14 +622,9 @@ YnkK")
             (if (nil? repeated-block)
               (recur (str input "0") block-size')
               (let [repeat-index (.indexOf partitioned repeated-block)
-                    target-index (+ repeat-index 2)
                     prefix-count (count input)]
                 {:block-size block-size'
-                 :repeated-block repeated-block
-                 :target-index target-index ;; index of first block of target data
-                 :resp-from-prefix output
-                 :resp-from-prefix-count output-count
-                 :raw-resp-count raw-resp-count
+                 :boundary-index repeat-index ;; index of first complete block of zeroes
                  :raw-resp raw-resp}))))))))
 
 (defn minimum-prefix-to-fill-garbage [oracle]
@@ -663,18 +658,15 @@ YnkK")
 (defn aes-ecb-decrypt-byte-at-a-time [oracle]
   (when (is-ecb? (oracle zeroed-out))
     (let [{:keys [block-size
-                  repeated-block
-                  target-index
-                  resp-from-prefix
-                  resp-from-prefix-count
-                  raw-resp-count
+                  boundary-index
                   raw-resp]} (query-oracle oracle)
-          resp-from-prefix' (partition-all block-size resp-from-prefix)
-          num-target-blocks (count (drop target-index resp-from-prefix'))
-          pre-prefix (count (minimum-prefix-to-fill-garbage oracle))
+          num-raw-resp-blocks (count (partition-all 16 raw-resp))
+          num-target-blocks (- num-raw-resp-blocks boundary-index)
+          pre-prefix (let [c (count (minimum-prefix-to-fill-garbage oracle))]
+                       (if (= 0 (mod c block-size)) 0 c))
           num-prefix-ext (+ pre-prefix (* block-size num-target-blocks))
-          num-prefix-blocks (/ num-prefix-ext block-size)
-          target-block-index (+ 1 num-prefix-blocks)]
+          num-prefix-ext-blocks (int (/ num-prefix-ext block-size))
+          target-block-index (- (+ num-prefix-ext-blocks boundary-index) 1)]
       (loop [prefix-size (dec num-prefix-ext)
              solved ""]
         (if (neg? prefix-size) solved
