@@ -65,5 +65,21 @@ a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"]
           decrypted (aes-cbc-decrypt key encrypted)]
       (is (= decrypted expected)))))
 
-;; (deftest aes-detection-oracle-test
-;;   (testing "padding"))
+(deftest pkcs7-padding
+  (testing "valid padding is stripped"
+    (let [test-string "ICE ICE BABY"
+          expected-result "ICE ICE BABY"
+          actual-result (pkcs7-validate-strip test-string)]
+      (is (= expected-result actual-result))))
+
+  (testing "invalid padding is not processed - ex 1"
+    (let [test-string "ICE ICE BABY"
+          expected-result "Invalid padding."
+          actual-result (pkcs7-validate-strip test-string)]
+      (is (= expected-result actual-result))))
+
+  (testing "invalid padding is not processed - ex 2"
+    (let [test-string "ICE ICE BABY"
+          expected-result "Invalid padding."
+          actual-result (pkcs7-validate-strip test-string)]
+      (is (= expected-result actual-result)))))

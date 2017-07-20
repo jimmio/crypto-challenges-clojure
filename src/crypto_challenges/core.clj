@@ -399,14 +399,18 @@ or a decrypted string"
   (let [p (- block-len (count s))]
     (flatten (cons (map int s) (repeat p (byte p))))))
 
-(defn pkcs7-strip
+(defn pkcs7-validate-strip
   [s]
   (let [last-char (last s)
         last-int (int last-char)
         block-size 16
-        s-length (count s)]
-    (if (< last-int block-size)
-      (subs s 0 (- s-length last-int)))))
+        s-length (count s)
+        freqs (frequencies s)
+        last-int-count (get freqs last-char)]
+    (if (and (< last-int block-size)
+             (= last-int-count last-int))
+      (subs s 0 (- s-length last-int))
+      "Invalid padding.")))
 
 
 ;; If the first block has index 1, the mathematical formula for CBC encryption is
@@ -560,7 +564,7 @@ YnkK")
   [byte-arrays]
   (let [decrypted (map #(aes-ecb :decrypt user-profile-key %) byte-arrays)
         chars (mapcat #(map char %) decrypted)
-        stripped (pkcs7-strip (st/join chars))]
+        stripped (pkcs7-validate-strip (st/join chars))]
     (cookie-to-hash-map stripped)))
 
 (defn map-deep
