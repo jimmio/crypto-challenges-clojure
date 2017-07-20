@@ -522,43 +522,6 @@ YnkK")
   (let [partitioned (partition-all 16 flat-ints)]
     (detect-aes-ecb :ints partitioned)))
 
-(defn aes-ecb-decrypt-byte-at-a-time [oracle]
-  (let [block-size (get-block-size oracle)
-        raw-resp (oracle "")
-        raw-resp-count (count raw-resp)
-        num-blocks (/ raw-resp-count block-size)
-        target-block-index (- num-blocks 1)]
-    (when (is-ecb? (oracle zeroed-out))
-      (loop [prefix-size (dec raw-resp-count)
-             solved ""]
-        (if (neg? prefix-size) solved
-            (let [prefix (apply str (repeat prefix-size "0"))
-                  prefix' (if (empty? solved)
-                            prefix
-                            (apply str (drop 1 solved)))
-                  ;; oracle needs the shortened string
-                  oracle-result (partition-all block-size (oracle prefix))
-                  target-block (nth oracle-result target-block-index)
-                  ;; dictionary needs the primed string
-                  dictionary (for [b (range 0 256)]
-                               (let [dict-key (str prefix' (char b))
-                                     dict-val (oracle dict-key)
-                                     dict-val (partition-all block-size dict-val)]
-                                 (vector dict-key dict-val)))
-                  match (some
-                         #(when
-                              (=
-                               (nth (second %) target-block-index)
-                               target-block)
-                            (first %))
-                         dictionary)
-                  match' (if (= nil match) solved match)
-                  _ (prn match')]
-              (recur (dec prefix-size) match')))))))
-
-(defonce challenge-12-solution
-  (aes-ecb-decrypt-byte-at-a-time aes-ecb-oracle))
-
 
 ;;;; ECB cut-and-paste  ;;;;
 
@@ -640,24 +603,108 @@ YnkK")
 (defn aes-ecb-oracle-random-prefix [plain]
   (aes-ecb-oracle (str random-prefix-str plain)))
 
-(defn provoke-repeated-block [oracle]
-  (let [initial-count (count (oracle ""))]
+(defn query-oracle [oracle]
+  "Performs the initial inquiry about block-size, identity of duplicate blocks, and index of first occurence of duplicate block"
+  (let [raw-resp (oracle "")
+        raw-resp-count (count raw-resp)]
     (loop [input "0"
            block-size nil]
       (let [output (oracle input)
             output-count (count output)]
-        (if (= output-count initial-count)
+        (if (= output-count raw-resp-count)
           (recur (str input "0") block-size)
           (let [block-size' (if (nil? block-size)
-                              (- output-count initial-count)
+                              (- output-count raw-resp-count)
                               block-size)
                 partitioned (partition-all block-size' output)
                 freq-map (frequencies partitioned)
-                duplicate (some #(when (> (val %) 1) (key %)) freq-map)]
-            (if (nil? duplicate)
+                repeated-block (some #(when (> (val %) 1) (key %)) freq-map)]
+            (if (nil? repeated-block)
               (recur (str input "0") block-size')
-              (let [index (.indexOf partitioned duplicate)]
-                {:duplicate duplicate
-                 :index index}))))))))
+              (let [repeat-index (.indexOf partitioned repeated-block)
+                    target-index (+ repeat-index 2)
+                    prefix-count (count input)
+                    _ (println "input" input)]
+                {:block-size block-size'
+                 :repeated-block repeated-block
+                 :target-index target-index ;; index of first block of target data
+                 :resp-from-prefix output
+                 :resp-from-prefix-count output-count
+                 :raw-resp-count raw-resp-count
+                 :raw-resp raw-resp}))))))))
+
+(defn minimum-prefix-to-fill-garbage [oracle]
+  (let [raw-resp (oracle "")
+        raw-resp' (partition-all 16 raw-resp)]
+    (loop [input "0"
+           curr-block-index 0
+           prev-state-of-curr-block nil]
+      (let [prefixed-resp (oracle input)
+            prefixed-resp' (partition-all 16 prefixed-resp)]
+        (if (= (nth prefixed-resp' curr-block-index) ;; find first index where blocks differ
+               (nth raw-resp' curr-block-index))
+          (recur
+           input
+           (inc curr-block-index)
+           nil)
+          (if (nil? prev-state-of-curr-block)
+            (recur
+             (str input "0")
+             curr-block-index
+             (nth prefixed-resp' curr-block-index))
+            (if (= prev-state-of-curr-block          ;; find first input length to fill block
+                   (nth prefixed-resp' curr-block-index))
+              (st/join (drop 1 input))
+              (recur
+               (str input "0")
+               curr-block-index
+               (nth prefixed-resp' curr-block-index)))))))))
 
 
+(defn aes-ecb-decrypt-byte-at-a-time [oracle]
+  (when (is-ecb? (oracle zeroed-out))
+    (let [{:keys [block-size
+                  repeated-block
+                  target-index
+                  resp-from-prefix
+                  resp-from-prefix-count
+                  raw-resp-count
+                  raw-resp]} (query-oracle oracle)
+          _ (println "RAW-RESP" raw-resp)
+          resp-from-prefix' (partition-all block-size resp-from-prefix)
+          _ (println "RESP-FROM-PREFIX'" resp-from-prefix')
+          num-target-blocks (count (drop target-index resp-from-prefix'))
+          num-prefix-ext (* block-size num-target-blocks)
+          num-prefix-blocks (/ num-prefix-ext block-size)
+          target-block-index (+ 1 num-prefix-blocks)]
+      (loop [prefix-size (dec num-prefix-ext)
+             solved ""]
+        (if (neg? prefix-size) solved
+            (let [prefix (apply str (repeat prefix-size "0"))
+                  prefix' (if (empty? solved)
+                            prefix
+                            (apply str (drop 1 solved)))
+                  ;; oracle needs the shortened string
+                  oracle-result (partition-all block-size (oracle prefix))
+                  _ (println "\n\n\nPREFIX-SIZE" prefix-size)
+                  _ (println "ORACLE-RESULT" oracle-result)
+                  target-block (nth oracle-result target-block-index)
+                  _ (println "TARGET BLOCK" target-block)
+                  ;; dictionary needs the primed string
+                  dictionary (for [b (range 0 256)]
+                               (let [dict-key (str prefix' (char b))
+                                     dict-val (oracle dict-key)
+                                     dict-val (partition-all block-size dict-val)]
+                                 (vector dict-key dict-val)))
+                  _ (println "DICT SAMPLE" (first dictionary))
+                  _ (println "MATCH?" ())
+                  match (some #(when
+                                   (= (nth (second %) target-block-index)
+                                      target-block)
+                                 (first %)) dictionary)
+                  match' (if (nil? match) solved match)
+                  _ (prn match')]
+              (recur (dec prefix-size) match')))))))
+
+(defonce challenge-12-solution
+  (aes-ecb-decrypt-byte-at-a-time aes-ecb-oracle))
