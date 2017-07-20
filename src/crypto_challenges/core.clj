@@ -619,9 +619,7 @@ YnkK")
         extend-post (st/join (map char (pkcs7-pad target-role block-size))) ;; fill second block
         extend-post-post (apply str (repeat num-chars-post-post "0"))       ;; fill third block
         crafted-input (str extend-pre extend-post extend-post-post)
-        _ (println crafted-input)
         oracle-response (encrypt-user-profile crafted-input)
-        _ (println oracle-response)
         new-order [0 3 2 1]
         newly-ordered (map #(nth oracle-response %) new-order)]
     newly-ordered))
