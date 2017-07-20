@@ -493,12 +493,12 @@ dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
 YnkK")
 
 (def zeroed-out
-  "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+  "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 
 (defonce challenge-12-mystery-key
   (gen-aes-key))
 
-(defn aes-encrypt-ecb-unknown [plain]
+(defn aes-ecb-oracle [plain]
   (let [mystery-ints (map int (debase64 challenge-12-mystery-string))
         plain' (map int plain)
         plain-w-mystery (flatten (cons plain' mystery-ints))
@@ -556,6 +556,9 @@ YnkK")
                   _ (prn match')]
               (recur (dec prefix-size) match')))))))
 
+(defonce challenge-12-solution
+  (aes-ecb-decrypt-byte-at-a-time aes-ecb-oracle))
+
 
 ;;;; ECB cut-and-paste  ;;;;
 
@@ -612,9 +615,9 @@ YnkK")
         num-chars-suffix (count assumed-suffix)
         num-chars-pre (- block-size num-chars-prefix)
         num-chars-post-post (- block-size num-chars-suffix)
-        extend-pre (apply str (repeat num-chars-pre "0")) ;; fill first block
+        extend-pre (apply str (repeat num-chars-pre "0"))                   ;; fill first block
         extend-post (st/join (map char (pkcs7-pad target-role block-size))) ;; fill second block
-        extend-post-post (apply str (repeat num-chars-post-post "0")) ;; fill third block
+        extend-post-post (apply str (repeat num-chars-post-post "0"))       ;; fill third block
         crafted-input (str extend-pre extend-post extend-post-post)
         _ (println crafted-input)
         oracle-response (encrypt-user-profile crafted-input)
@@ -623,5 +626,18 @@ YnkK")
         newly-ordered (map #(nth oracle-response %) new-order)]
     newly-ordered))
 
-(def challenge-13-solution
+(defonce challenge-13-solution
   (decrypt-user-profile (handcrafted-role)))
+
+;;;; byte-at-a-time ECB decryption (harder) ;;;;
+
+(defn gen-random-string []
+  (let [length (rand-int 100)
+        ints (for [i (range 0 length)]
+               (rand-int 256))]
+    (st/join (map char ints))))
+
+(defonce random-prefix-str (gen-random-string))
+
+(defn aes-ecb-oracle-random-prefix [plain]
+  (aes-ecb-oracle (str random-prefix-str plain)))
