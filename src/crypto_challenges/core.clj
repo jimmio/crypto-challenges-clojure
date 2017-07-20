@@ -623,8 +623,7 @@ YnkK")
               (recur (str input "0") block-size')
               (let [repeat-index (.indexOf partitioned repeated-block)
                     target-index (+ repeat-index 2)
-                    prefix-count (count input)
-                    _ (println "input" input)]
+                    prefix-count (count input)]
                 {:block-size block-size'
                  :repeated-block repeated-block
                  :target-index target-index ;; index of first block of target data
@@ -670,11 +669,10 @@ YnkK")
                   resp-from-prefix-count
                   raw-resp-count
                   raw-resp]} (query-oracle oracle)
-          _ (println "RAW-RESP" raw-resp)
           resp-from-prefix' (partition-all block-size resp-from-prefix)
-          _ (println "RESP-FROM-PREFIX'" resp-from-prefix')
           num-target-blocks (count (drop target-index resp-from-prefix'))
-          num-prefix-ext (* block-size num-target-blocks)
+          pre-prefix (count (minimum-prefix-to-fill-garbage oracle))
+          num-prefix-ext (+ pre-prefix (* block-size num-target-blocks))
           num-prefix-blocks (/ num-prefix-ext block-size)
           target-block-index (+ 1 num-prefix-blocks)]
       (loop [prefix-size (dec num-prefix-ext)
@@ -686,18 +684,15 @@ YnkK")
                             (apply str (drop 1 solved)))
                   ;; oracle needs the shortened string
                   oracle-result (partition-all block-size (oracle prefix))
-                  _ (println "\n\n\nPREFIX-SIZE" prefix-size)
-                  _ (println "ORACLE-RESULT" oracle-result)
-                  target-block (nth oracle-result target-block-index)
-                  _ (println "TARGET BLOCK" target-block)
+                  target-block (try
+                                 (nth oracle-result target-block-index)
+                                 (catch IndexOutOfBoundsException solved))
                   ;; dictionary needs the primed string
                   dictionary (for [b (range 0 256)]
                                (let [dict-key (str prefix' (char b))
                                      dict-val (oracle dict-key)
                                      dict-val (partition-all block-size dict-val)]
                                  (vector dict-key dict-val)))
-                  _ (println "DICT SAMPLE" (first dictionary))
-                  _ (println "MATCH?" ())
                   match (some #(when
                                    (= (nth (second %) target-block-index)
                                       target-block)
