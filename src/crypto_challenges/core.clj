@@ -510,12 +510,12 @@ YnkK")
         flattened-ints (flatten (map #(map int %) encrypted))]
     flattened-ints))
 
-(defn get-block-size [byte-source]
-  (let [initial-count (count (byte-source ""))]
-    (loop [input "A"]
-      (let [output (byte-source input)]
+(defn get-block-size [oracle]
+  (let [initial-count (count (oracle ""))]
+    (loop [input "0"]
+      (let [output (oracle input)]
         (if (= (count output) initial-count)
-          (recur (str input "A"))
+          (recur (str input "0"))
           (- (count output) initial-count))))))
 
 (defn is-ecb? [flat-ints]
@@ -532,7 +532,7 @@ YnkK")
       (loop [prefix-size (dec raw-resp-count)
              solved ""]
         (if (neg? prefix-size) solved
-            (let [prefix (apply str (repeat prefix-size "A"))
+            (let [prefix (apply str (repeat prefix-size "0"))
                   prefix' (if (empty? solved)
                             prefix
                             (apply str (drop 1 solved)))
@@ -641,3 +641,25 @@ YnkK")
 
 (defn aes-ecb-oracle-random-prefix [plain]
   (aes-ecb-oracle (str random-prefix-str plain)))
+
+(defn provoke-repeated-block [oracle]
+  (let [initial-count (count (oracle ""))]
+    (loop [input "0"
+           block-size nil]
+      (let [output (oracle input)
+            output-count (count output)]
+        (if (= output-count initial-count)
+          (recur (str input "0") block-size)
+          (let [block-size' (if (nil? block-size)
+                              (- output-count initial-count)
+                              block-size)
+                partitioned (partition-all block-size' output)
+                freq-map (frequencies partitioned)
+                duplicate (some #(when (> (val %) 1) (key %)) freq-map)]
+            (if (nil? duplicate)
+              (recur (str input "0") block-size')
+              (let [index (.indexOf partitioned duplicate)]
+                {:duplicate duplicate
+                 :index index}))))))))
+
+
