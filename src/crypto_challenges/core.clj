@@ -608,7 +608,7 @@ YnkK")
   (aes-ecb-oracle (str random-prefix-str plain)))
 
 (defn query-oracle [oracle]
-  "Performs the initial inquiry into block-size, and boundary between target data and garbage data (if any)"
+  "For ECB.  Performs the initial inquiry into block-size, and boundary between target data and garbage data (if any)."
   (let [raw-resp (oracle "")
         raw-resp-count (count raw-resp)]
     (loop [input "0"
@@ -727,9 +727,31 @@ YnkK")
         decrypted (aes-cbc-decrypt k enc-byte-arrays)
         seek-admin-flag (re-matches #".*?;admin=true;.*?" decrypted)]
     (if (nil? seek-admin-flag)
-      decrypted
-      (do (prn "User is admin.") decrypted))))
+      (do
+        (println "false\n")
+        decrypted)
+      (do
+        (println "true\n")
+        decrypted))))
 
-(defn user-input-tamper-cbc
-  [enc-byte-arrays]
-  (let []))
+(defn indices-of-char
+  [c s]
+  (loop [l (count s)
+         i 0
+         indices []]
+    (if (= i l)
+      indices
+      (if (= c (nth s i))
+        (recur l (inc i) (conj indices i))
+        (recur l (inc i) indices)))))
+     
+(defn user-input-bitflip-cbc
+  [oracle input-str meta-chars user-input-block-idx]
+  (let [indices (for [c meta-chars] (indices-of-char c input-str))
+        indices' (apply hash-map (interleave meta-chars indices))
+        _ (println indices')
+        oracle-result (oracle input-str)
+        block-to-bitflip (nth oracle-result (dec user-input-block-idx))
+        counter-chars (map #(nth block-to-bitflip %) (flatten indices))
+        _ (println counter-chars)]
+    oracle-result))
