@@ -702,3 +702,34 @@ YnkK")
 
 ;; (defonce challenge-13-solution
 ;;   (aes-ecb-decrypt-byte-at-a-time aes-ecb-oracle-random-prefix))
+
+
+;;;; CBC bitflipping attacks ;;;;
+
+(defonce challenge-16-key (gen-aes-key))
+(defonce challenge-16-iv (gen-aes-key))
+
+(defn user-input-encrypt-cbc
+  [s]
+  (let [k challenge-16-key
+        iv challenge-16-iv
+        prefix "comment1=cooking%20MCs;userdata="
+        suffix ";comment2=%20like%20a%20pound%20of%20bacon"
+        escaped (-> s
+                    (st/replace #";" "\";\"")
+                    (st/replace #"=" "\"=\""))
+        whole (str prefix escaped suffix)]
+    (aes-cbc-encrypt k whole iv)))
+
+(defn user-input-decrypt-cbc
+  [enc-byte-arrays]
+  (let [k challenge-16-key
+        decrypted (aes-cbc-decrypt k enc-byte-arrays)
+        seek-admin-flag (re-matches #".*?;admin=true;.*?" decrypted)]
+    (if (nil? seek-admin-flag)
+      decrypted
+      (do (prn "User is admin.") decrypted))))
+
+(defn user-input-tamper-cbc
+  [enc-byte-arrays]
+  (let []))
