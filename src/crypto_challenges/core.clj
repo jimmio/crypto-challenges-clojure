@@ -164,9 +164,17 @@
 (defn make-bin
   "Accepts a collection of decimal byte values (get-bytes provides this) and returns their equivalents in binary octets"
   [bytecoll]
-  (->> bytecoll (map #(Integer/toBinaryString %))
-                (map #(when (< (count %) 8)
-                        (str (apply str (repeat (- 8 (count %)) "0")) %)))))
+  (->> bytecoll
+       (map #(Integer/toBinaryString %))
+       (map #(cond
+               (< (count %) 8)
+               (str (apply str (repeat (- 8 (count %)) "0")) %)
+               
+               (> (count %) 8)
+               (let [start-index (- (count %) 8)]
+                 (subs % start-index))
+
+               :else %))))
  
 (defn hamming-distance
   "Accepts two collections of binary octet strings and gives the hamming distance between their respective bits"
@@ -744,6 +752,13 @@ YnkK")
       (if (= c (nth s i))
         (recur l (inc i) (conj indices i))
         (recur l (inc i) indices)))))
+
+(defn get-xor-operand
+  [flip-byte desired-byte]
+  (for [b (range -128 128)]
+    (let [result (bit-xor flip-byte b)]
+      (when (= result desired-byte)
+        (+ b 256)))))
      
 (defn user-input-bitflip-cbc
   [oracle input-str meta-chars user-input-block-idx]
