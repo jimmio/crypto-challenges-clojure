@@ -469,7 +469,6 @@ or a decrypted string"
         text-ints (map #(map int %) text)
         decrypted-ints (map #(map int %) decrypted)
         xord (map #(map bit-xor %1 %2) decrypted-ints text-ints)
-        _ (println "\n\nXORD" xord)
         xord' (map-deep signed-to-unsigned xord)]
     (st/join (flatten (map-deep char xord')))))
 
@@ -739,14 +738,10 @@ YnkK")
   [enc-byte-arrays]
   (let [k challenge-16-key
         decrypted (aes-cbc-decrypt k enc-byte-arrays)
-        seek-admin-flag (re-matches #".*?;admin=true;.*?" decrypted)]
+        seek-admin-flag (re-matches #"(?sm).*?(;admin=true;).*?" decrypted)]
     (if (nil? seek-admin-flag)
-      (do
-        (println "false\n")
-        decrypted)
-      (do
-        (println "true\n")
-        decrypted))))
+      [false decrypted]
+      [true decrypted])))
 
 (defn indices-of-char
   [c s]
@@ -760,12 +755,39 @@ YnkK")
         (recur l (inc i) indices)))))
      
 (defn user-input-bitflip-cbc
-  [oracle input-str faux-meta-chars user-input-block-idx]
+  [oracle input-str faux-meta-chars meta-chars user-input-block-idx]
   (let [indices (for [c faux-meta-chars] (indices-of-char c input-str))
-        ;; indices' (apply hash-map (interleave faux-meta-chars indices))
-        indices' (-> indices flatten sort)
-        _ (println "INDICES'" indices')
+        indices' (map vec (partition 2 (interleave faux-meta-chars indices)))
         oracle-result (oracle input-str)
         user-input-block (nth oracle-result user-input-block-idx)
-        block-to-bitflip (nth oracle-result (dec user-input-block-idx))]
-    oracle-result))
+        block-to-corrupt (nth oracle-result (dec user-input-block-idx))
+        get-byte-to-bitflip (partial nth block-to-corrupt)
+        ;; returns [\c [indices] (list prior-bytes)]
+        conj-bytes-to-bitflip (vec (map #(let [indices (nth % 1)
+                                               bytes-to-bitflip (map get-byte-to-bitflip indices)]
+                                           (conj % bytes-to-bitflip)) indices'))
+        ;; returns [\c [indices] (list prior-bytes) (list deciphered-bytes)]
+        conj-deciphered-bytes (vec (map #(let [known-char (int (nth % 0))
+                                               bytes' (nth % 2)
+                                               xord (map (fn [b] (bit-xor known-char b)) bytes')]
+                                           (conj % xord)) conj-bytes-to-bitflip))
+        ;; returns [\c [indices] (list prior-bytes) (list deciphered-bytes) (list corrupt-bytes)]
+        conj-corrupt-bytes (map #(let [deciphered-bytes (nth %1 3)
+                                       meta-char (int %2)
+                                       corrupt-bytes (map (fn [b] (bit-xor meta-char b)) deciphered-bytes)
+                                       ]
+                                   (conj %1 corrupt-bytes)) conj-deciphered-bytes meta-chars)
+
+        make-replacement-maps (fn [coll]
+                                (let [targets (nth coll 2)
+                                      replacements (nth coll 4)]
+                                  (apply hash-map (interleave targets replacements))))
+        replacement-maps (map make-replacement-maps conj-corrupt-bytes)
+        replacement-map (apply merge replacement-maps)
+        corrupt-block (replace replacement-map (map int block-to-corrupt))
+        corrupt-block' (byte-array corrupt-block)
+        corrupted-ciphertext (replace {block-to-corrupt corrupt-block'} oracle-result)]
+    corrupted-ciphertext))
+
+;; (def challenge-16-solution
+;;   (user-input-decrypt-cbc (user-input-bitflip-cbc user-input-encrypt-cbc "_admin?true_" [\_ \?] [\; \=] 3)))
