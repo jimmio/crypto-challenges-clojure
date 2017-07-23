@@ -755,7 +755,11 @@ YnkK")
         (recur l (inc i) indices)))))
      
 (defn user-input-bitflip-cbc
-  [oracle input-str faux-meta-chars meta-chars user-input-block-idx]
+  [oracle
+   input-str
+   faux-meta-chars
+   meta-chars
+   user-input-block-idx] ;; TODO: let the machine find the index
   (let [indices (for [c faux-meta-chars] (indices-of-char c input-str))
         indices' (map vec (partition 2 (interleave faux-meta-chars indices)))
         oracle-result (oracle input-str)
