@@ -8,6 +8,10 @@
           (org.apache.commons.codec.binary Base64)
           (javax.xml.bind.DatatypeConverter)))
 
+(defn map-deep
+  [fn coll]
+  (map #(map fn %) coll))
+
 (defn encode-hex
   "Accepts a collection of decimal byte values and encodes it to hexadecimal" 
   [bytes-map]
@@ -46,6 +50,10 @@
   "Accepts a string and returns a base64 encoded string"
   [strarg]
   (.encodeToString (java.util.Base64/getEncoder) (.getBytes strarg)))
+
+(defn signed-to-unsigned
+  [dec]
+  (if (< dec 0) (+ 256 dec) dec))
 
 (defn fixed-xor
   "Accepts two hex strings and produces their XOR'd combination"
@@ -460,8 +468,10 @@ or a decrypted string"
   (let [decrypted (map #(aes-ecb :decrypt k %) (rest text)) ; don't need to decrypt the iv
         text-ints (map #(map int %) text)
         decrypted-ints (map #(map int %) decrypted)
-        xord (map #(map bit-xor %1 %2) decrypted-ints text-ints)]
-    (st/join (flatten (map #(map char %) xord)))))
+        xord (map #(map bit-xor %1 %2) decrypted-ints text-ints)
+        _ (println "\n\nXORD" xord)
+        xord' (map-deep signed-to-unsigned xord)]
+    (st/join (flatten (map-deep char xord')))))
 
 
 ;;;; ECB/CBC DETECTION ORACLE ;;;;
@@ -574,10 +584,6 @@ YnkK")
         chars (mapcat #(map char %) decrypted)
         stripped (pkcs7-validate-strip (st/join chars))]
     (cookie-to-hash-map stripped)))
-
-(defn map-deep
-  [fn coll]
-  (map #(map fn %) coll))
 
 (defn handcrafted-role
   []
@@ -752,21 +758,14 @@ YnkK")
       (if (= c (nth s i))
         (recur l (inc i) (conj indices i))
         (recur l (inc i) indices)))))
-
-(defn get-xor-operand
-  [flip-byte desired-byte]
-  (for [b (range -128 128)]
-    (let [result (bit-xor flip-byte b)]
-      (when (= result desired-byte)
-        (+ b 256)))))
      
 (defn user-input-bitflip-cbc
-  [oracle input-str meta-chars user-input-block-idx]
-  (let [indices (for [c meta-chars] (indices-of-char c input-str))
-        indices' (apply hash-map (interleave meta-chars indices))
-        _ (println indices')
+  [oracle input-str faux-meta-chars user-input-block-idx]
+  (let [indices (for [c faux-meta-chars] (indices-of-char c input-str))
+        ;; indices' (apply hash-map (interleave faux-meta-chars indices))
+        indices' (-> indices flatten sort)
+        _ (println "INDICES'" indices')
         oracle-result (oracle input-str)
-        block-to-bitflip (nth oracle-result (dec user-input-block-idx))
-        counter-chars (map #(nth block-to-bitflip %) (flatten indices))
-        _ (println counter-chars)]
+        user-input-block (nth oracle-result user-input-block-idx)
+        block-to-bitflip (nth oracle-result (dec user-input-block-idx))]
     oracle-result))
