@@ -795,3 +795,34 @@ YnkK")
 
 ;; (def challenge-16-solution
 ;;   (user-input-decrypt-cbc (user-input-bitflip-cbc user-input-encrypt-cbc "_admin?true_" [\_ \?] [\; \=] 3)))
+
+
+;;;; THE CBC PADDING ORACLE ;;;;
+
+(def challenge-17-strings
+  ["MDAwMDAwTm93IHRoYXQgdGhlIHBhcnR5IGlzIGp1bXBpbmc="
+   "MDAwMDAxV2l0aCB0aGUgYmFzcyBraWNrZWQgaW4gYW5kIHRoZSBWZWdhJ3MgYXJlIHB1bXBpbic="
+   "MDAwMDAyUXVpY2sgdG8gdGhlIHBvaW50LCB0byB0aGUgcG9pbnQsIG5vIGZha2luZw=="
+   "MDAwMDAzQ29va2luZyBNQydzIGxpa2UgYSBwb3VuZCBvZiBiYWNvbg=="
+   "MDAwMDA0QnVybmluZyAnZW0sIGlmIHlvdSBhaW4ndCBxdWljayBhbmQgbmltYmxl"
+   "MDAwMDA1SSBnbyBjcmF6eSB3aGVuIEkgaGVhciBhIGN5bWJhbA=="
+   "MDAwMDA2QW5kIGEgaGlnaCBoYXQgd2l0aCBhIHNvdXBlZCB1cCB0ZW1wbw=="
+   "MDAwMDA3SSdtIG9uIGEgcm9sbCwgaXQncyB0aW1lIHRvIGdvIHNvbG8="
+   "MDAwMDA4b2xsaW4nIGluIG15IGZpdmUgcG9pbnQgb2g="
+   "MDAwMDA5aXRoIG15IHJhZy10b3AgZG93biBzbyBteSBoYWlyIGNhbiBibG93"])
+
+(defonce challenge-17-key
+  (gen-aes-key))
+
+(defn challenge-17-oracle
+  []
+  (let [i (rand-int 10)
+        block-size 16
+        s (nth challenge-17-strings i)
+        s' (->> s
+                debase64
+                (map char)
+                st/join)
+        iv (gen-aes-key)
+        k challenge-17-key]
+    (aes-cbc-encrypt k s' iv)))
