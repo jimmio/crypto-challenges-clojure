@@ -410,10 +410,22 @@ or a decrypted string"
 
 
 ;;;; IMPLEMENT PKCS#7 PADDING ;;;;
+
 (defn pkcs7-pad
-  [s block-len]
-  (let [p (- block-len (count s))]
-    (flatten (cons (map int s) (repeat p (byte p))))))
+  [s]
+  (let [block-size 16
+        ints (map int s)
+        partitioned (partition-all block-size ints)
+        last-block-count (count (last partitioned))]
+    (if (= last-block-count block-size)
+      (let [fill-block (repeat block-size (byte block-size))]
+        (conj fill-block partitioned))
+      (let [pad-val (- block-size last-block-count)
+            _ (println "S COUNT: " (count s))]
+        (map #(if (= % (last partitioned))
+                (let [padding (repeat pad-val (byte pad-val))]
+                  (flatten (conj padding %)))
+                %) partitioned)))))
 
 (defn pkcs7-validate-strip
   [s]
@@ -423,7 +435,7 @@ or a decrypted string"
         s-length (count s)
         freqs (frequencies s)
         last-int-count (get freqs last-char)]
-    (if (and (< last-int block-size)
+    (if (and (<= last-int block-size)
              (= last-int-count last-int))
       (subs s 0 (- s-length last-int))
       "Invalid padding.")))
@@ -454,8 +466,8 @@ or a decrypted string"
       massage-ivless-b64))
 
 (defn aes-cbc-encrypt [k text iv]
-  (let [partitioned (partition-all 16 text)
-        padded (map #(pkcs7-pad % 16) partitioned)
+  (let [padded (pkcs7-pad text)
+        _ (println "PADDED: " padded)
         iv' (if (= (type iv) java.lang.String)
               (.getBytes iv)
               iv)]
@@ -491,8 +503,7 @@ or a decrypted string"
         rand-padded (flatten (list rand-pad-pre plain' rand-pad-post))
         coin-flip (rand)]
     (if (< coin-flip 0.5)
-      (let [partitioned (partition-all 16 rand-padded)
-            padded (map #(pkcs7-pad % 16) partitioned)
+      (let [padded (pkcs7-pad rand-padded)
             byted (map byte-array padded)]
         (vec (map #(aes-ecb :encrypt k %) byted)))
       (let [iv (gen-aes-key)]
@@ -523,8 +534,7 @@ YnkK")
   (let [mystery-ints (map int (debase64 challenge-12-mystery-string))
         plain' (map int plain)
         plain-w-mystery (flatten (cons plain' mystery-ints))
-        partitioned (partition-all 16 plain-w-mystery)
-        padded (map #(pkcs7-pad % 16) partitioned)
+        padded (pkcs7-pad plain-w-mystery)
         byted (map byte-array padded)
         k challenge-12-mystery-key
         encrypted (vec (map #(aes-ecb :encrypt k %) byted))
@@ -569,11 +579,10 @@ YnkK")
 (defn encrypt-user-profile
   [email]
   (let [block-size 16
-        partitioned (->> email
-                         make-user-profile
-                         make-structured-cookie
-                         (partition-all block-size))
-        padded (map #(pkcs7-pad % block-size) partitioned)
+        structured (->> email
+                        make-user-profile
+                        make-structured-cookie)
+        padded (pkcs7-pad structured)
         byted (map byte-array padded)]
     (map #(aes-ecb :encrypt user-profile-key %) byted)))
 
@@ -596,7 +605,7 @@ YnkK")
         num-chars-pre (- block-size num-chars-prefix)
         num-chars-post-post (- block-size num-chars-suffix)
         extend-pre (apply str (repeat num-chars-pre "0"))                   ;; fill first block
-        extend-post (st/join (map char (pkcs7-pad target-role block-size))) ;; fill second block
+        extend-post (st/join (map char (pkcs7-pad target-role)))            ;; fill second block
         extend-post-post (apply str (repeat num-chars-post-post "0"))       ;; fill third block
         crafted-input (str extend-pre extend-post extend-post-post)
         oracle-response (encrypt-user-profile crafted-input)
@@ -814,7 +823,7 @@ YnkK")
 (defonce challenge-17-key
   (gen-aes-key))
 
-(defn challenge-17-oracle
+(defn challenge-17-generate-cookie
   []
   (let [i (rand-int 10)
         block-size 16
@@ -826,3 +835,13 @@ YnkK")
         iv (gen-aes-key)
         k challenge-17-key]
     (aes-cbc-encrypt k s' iv)))
+
+(defn challenge-17-consume-cookie
+  [enc-byte-arrays]
+  (let [k challenge-17-key
+        decrypted (aes-cbc-decrypt k enc-byte-arrays)
+        _ (println decrypted)
+        validate (pkcs7-validate-strip decrypted)]
+    (if (= validate "Invalid padding.")
+      false
+      true)))
