@@ -415,18 +415,14 @@ or a decrypted string"
   [s]
   (let [block-size 16
         ints (map int s)
-        partitioned (partition-all block-size ints)
-        last-block-count (count (last partitioned))
-        last-block-full? (= last-block-count block-size)
-        fill-block (if last-block-full?
-                     (repeat block-size (byte block-size))
-                     (let [pad-val (- block-size last-block-count)]
-                       (repeat pad-val (byte pad-val))))
-        padding-added (map #(if (= % (last partitioned))
-                              (flatten (conj fill-block %))
-                              %)
-                           partitioned)]
-    padding-added))
+        int-count (count ints)
+        leftover (mod int-count block-size)]
+    (if (= leftover 0)
+      (let [padding (repeat block-size block-size)
+            ints' (flatten (cons ints padding))]
+        (partition block-size ints'))
+      (let [padding (repeat (- block-size leftover) (- block-size leftover))]
+        (partition block-size block-size padding ints)))))
 
 (defn pkcs7-validate-strip
   [s]
@@ -436,8 +432,7 @@ or a decrypted string"
         s-length (count s)
         freqs (frequencies s)
         last-int-count (get freqs last-char)]
-    (if (and (<= last-int block-size)
-             (= last-int-count last-int))
+    (if (= last-int-count last-int)
       (subs s 0 (- s-length last-int))
       "Invalid padding.")))
 
@@ -457,6 +452,7 @@ or a decrypted string"
 
 (defn aes-cbc-encrypt [k text iv]
   (let [padded (pkcs7-pad text)
+
         iv' (if (= (type iv) java.lang.String)
               (.getBytes iv)
               iv)]
@@ -829,7 +825,6 @@ YnkK")
   [enc-byte-arrays]
   (let [k challenge-17-key
         decrypted (aes-cbc-decrypt k enc-byte-arrays)
-        _ (println decrypted)
         validate (pkcs7-validate-strip decrypted)]
     (if (= validate "Invalid padding.")
       false

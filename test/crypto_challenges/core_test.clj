@@ -66,6 +66,13 @@ a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"]
       (is (= decrypted expected)))))
 
 (deftest pkcs7-padding
+  (testing "a full block of padding is supplied when the last block is full"
+    (let [test-string "YELLOW SUBMARINE"
+          expected-result (list (list 89 69 76 76 79 87 32 83 85 66 77 65 82 73 78 69
+                                      16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16))
+          actual-result (pkcs7-pad test-string)]
+      (is (= expected-result actual-result))))
+  
   (testing "valid padding is stripped"
     (let [test-string "ICE ICE BABY"
           expected-result "ICE ICE BABY"
