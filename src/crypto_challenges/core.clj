@@ -416,16 +416,17 @@ or a decrypted string"
   (let [block-size 16
         ints (map int s)
         partitioned (partition-all block-size ints)
-        last-block-count (count (last partitioned))]
-    (if (= last-block-count block-size)
-      (let [fill-block (repeat block-size (byte block-size))]
-        (conj fill-block partitioned))
-      (let [pad-val (- block-size last-block-count)
-            _ (println "S COUNT: " (count s))]
-        (map #(if (= % (last partitioned))
-                (let [padding (repeat pad-val (byte pad-val))]
-                  (flatten (conj padding %)))
-                %) partitioned)))))
+        last-block-count (count (last partitioned))
+        last-block-full? (= last-block-count block-size)
+        fill-block (if last-block-full?
+                     (repeat block-size (byte block-size))
+                     (let [pad-val (- block-size last-block-count)]
+                       (repeat pad-val (byte pad-val))))
+        padding-added (map #(if (= % (last partitioned))
+                              (flatten (conj fill-block %))
+                              %)
+                           partitioned)]
+    padding-added))
 
 (defn pkcs7-validate-strip
   [s]
@@ -439,17 +440,6 @@ or a decrypted string"
              (= last-int-count last-int))
       (subs s 0 (- s-length last-int))
       "Invalid padding.")))
-
-
-;; If the first block has index 1, the mathematical formula for CBC encryption is
-
-;;     Ci = EK(Pi ⊕ Ci−1)
-;;     C0 = I V
-
-;; while the mathematical formula for CBC decryption is
-
-;;     Pi = DK(Ci) ⊕ Ci−1 ,
-;;     C0 = IV
 
 (def set-2-challenge-2-data (clojure.java.io/file "resources/10.txt"))
 
@@ -467,7 +457,6 @@ or a decrypted string"
 
 (defn aes-cbc-encrypt [k text iv]
   (let [padded (pkcs7-pad text)
-        _ (println "PADDED: " padded)
         iv' (if (= (type iv) java.lang.String)
               (.getBytes iv)
               iv)]
