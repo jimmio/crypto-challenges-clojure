@@ -590,7 +590,7 @@ YnkK")
         num-chars-pre (- block-size num-chars-prefix)
         num-chars-post-post (- block-size num-chars-suffix)
         extend-pre (apply str (repeat num-chars-pre "0"))                   ;; fill first block
-        extend-post (st/join (map char (pkcs7-pad target-role)))            ;; fill second block
+        extend-post (st/join (map char (first (pkcs7-pad target-role))))    ;; fill second block
         extend-post-post (apply str (repeat num-chars-post-post "0"))       ;; fill third block
         crafted-input (str extend-pre extend-post extend-post-post)
         oracle-response (encrypt-user-profile crafted-input)
