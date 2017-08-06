@@ -433,7 +433,8 @@ or a decrypted string"
         freqs (frequencies s)
         last-int-count (get freqs last-char)]
     (if (= last-int-count last-int)
-      (subs s 0 (- s-length last-int))
+      (let [_ (println s)]
+        (subs s 0 (- s-length last-int)))
       "Invalid padding.")))
 
 (def set-2-challenge-2-data (clojure.java.io/file "resources/10.txt"))
@@ -821,6 +822,9 @@ YnkK")
         k challenge-17-key]
     (aes-cbc-encrypt k s' iv)))
 
+(defonce challenge-17-cookie
+  (challenge-17-generate-cookie))
+
 (defn challenge-17-consume-cookie
   [enc-byte-arrays]
   (let [k challenge-17-key
@@ -829,3 +833,49 @@ YnkK")
     (if (= validate "Invalid padding.")
       false
       true)))
+
+(defn massive-fn-to-break-apart
+  [cbc-encrypted-cookie
+   padding-oracle]
+  (let [dec-bytes (vec (map-deep int cbc-encrypted-cookie))
+        block-count (count dec-bytes)
+        block-size 16]
+    (loop [block-level-i (- block-count 1)
+           target-block (vec (nth dec-bytes block-level-i))
+           tamper-block [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+           byte-level-i (dec block-size)
+           intermediate-bytes []]
+      (if (< byte-level-i 0)
+        (reverse intermediate-bytes)
+        (let [payload (list tamper-block target-block)
+              payload' (map byte-array payload)
+              _ (println tamper-block)]
+          (if (padding-oracle payload')
+            (let [_ (println "TAMPER BLOCK" tamper-block)
+                  _ (println "INTER BYTES" intermediate-bytes "\n\n")
+                  intermediate-byte (bit-xor
+                                     (- block-size byte-level-i)
+                                     (nth tamper-block byte-level-i))]
+              (recur
+               block-level-i
+               target-block
+               (let [intermediate-bytes' (if (empty? intermediate-bytes)
+                                           (vector intermediate-byte)
+                                           (conj intermediate-bytes intermediate-byte))
+                     _ (println "INTERMEDIATE-BYTES'" intermediate-bytes')
+                     new-tamper-block (flatten
+                                       (list
+                                        (repeat byte-level-i 0)
+                                        (reverse (subvec intermediate-bytes' 0 (- block-size byte-level-i)))))
+                     new-tamper-block' (map
+                                        #(if (= 0 %) 0
+                                             (bit-xor % (- block-size (dec byte-level-i)))) new-tamper-block)]
+                 (vec new-tamper-block'))
+               (dec byte-level-i)
+               (conj intermediate-bytes intermediate-byte)))
+            (recur
+             block-level-i
+             target-block
+             (update-in tamper-block [byte-level-i] inc)
+             byte-level-i
+             intermediate-bytes)))))))
